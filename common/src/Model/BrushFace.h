@@ -27,6 +27,7 @@
 #include "Model/BrushGeometry.h"
 #include "Model/Tag.h" // BrushFace inherits from Taggable
 
+#include <kdl/result_forward.h>
 #include <kdl/transform_range.h>
 
 #include <vecmath/vec.h>
@@ -34,6 +35,7 @@
 #include <vecmath/util.h>
 
 #include <array>
+#include <iosfwd>
 #include <memory>
 #include <string>
 #include <vector>
@@ -47,6 +49,7 @@ namespace TrenchBroom {
         class TexCoordSystem;
         class TexCoordSystemSnapshot;
         enum class WrapStyle;
+        enum class BrushError;
 
         class BrushFace : public Taggable {
         public:
@@ -91,8 +94,6 @@ namespace TrenchBroom {
             mutable size_t m_lineCount;
             bool m_selected;
         public:
-            BrushFace(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem);
-
             BrushFace(const BrushFace& other);
             BrushFace(BrushFace&& other) noexcept;
             BrushFace& operator=(BrushFace other) noexcept;
@@ -100,12 +101,14 @@ namespace TrenchBroom {
             friend void swap(BrushFace& lhs, BrushFace& rhs) noexcept;
 
             ~BrushFace();
-            
+
+            static kdl::result<BrushFace, BrushError> create(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem);
+
+            BrushFace(const BrushFace::Points& points, const vm::plane3& boundary, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem);
+
             friend bool operator==(const BrushFace& lhs, const BrushFace& rhs);
             friend bool operator!=(const BrushFace& lhs, const BrushFace& rhs);
-
-            static BrushFace createParaxial(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const std::string& textureName = "");
-            static BrushFace createParallel(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const std::string& textureName = "");
+            friend std::ostream& operator<<(std::ostream& str, const BrushFace& face);
 
             static void sortFaces(std::vector<BrushFace>& faces);
 
@@ -114,7 +117,6 @@ namespace TrenchBroom {
             void copyTexCoordSystemFromFace(const TexCoordSystemSnapshot& coordSystemSnapshot, const BrushFaceAttributes& attributes, const vm::plane3& sourceFacePlane, WrapStyle wrapStyle);
 
             const BrushFace::Points& points() const;
-            bool arePointsOnPlane(const vm::plane3& plane) const;
             const vm::plane3& boundary() const;
             const vm::vec3& normal() const;
             vm::vec3 center() const;
@@ -123,7 +125,7 @@ namespace TrenchBroom {
 
             const BrushFaceAttributes& attributes() const;
             void setAttributes(const BrushFaceAttributes& attributes);
-            bool setAttributes(const BrushFace* other);
+            bool setAttributes(const BrushFace& other);
 
             void resetTexCoordSystemCache();
 
@@ -141,12 +143,10 @@ namespace TrenchBroom {
             void rotateTexture(float angle);
             void shearTexture(const vm::vec2f& factors);
 
-            void transform(const vm::mat4x4& transform, bool lockTexture);
+            kdl::result<void, BrushError> transform(const vm::mat4x4& transform, bool lockTexture);
             void invert();
 
-            void updatePointsFromVertices();
-            void snapPlanePointsToInteger();
-            void findIntegerPlanePoints();
+            kdl::result<void, BrushError> updatePointsFromVertices();
 
             vm::mat4x4 projectToBoundaryMatrix() const;
             vm::mat4x4 toTexCoordSystemMatrix(const vm::vec2f& offset, const vm::vec2f& scale, bool project) const;
@@ -175,7 +175,7 @@ namespace TrenchBroom {
 
             FloatType intersectWithRay(const vm::ray3& ray) const;
         private:
-            void setPoints(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2);
+            kdl::result<void, BrushError> setPoints(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2);
             void correctPoints();
         private: // implement Taggable interface
             void doAcceptTagVisitor(TagVisitor& visitor) override;

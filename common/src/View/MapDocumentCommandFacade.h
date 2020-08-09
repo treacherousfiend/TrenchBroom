@@ -93,7 +93,8 @@ namespace TrenchBroom {
         public: // transformation
             /**
              * @return true if the transform was applied, false if can't be applied
-             *         to everything in the selection (in which case nothing is modified).
+             * to everything in the selection, in which case it's the caller's responsibility to restore the modified
+             * nodes.
              */
             bool performTransform(const vm::mat4x4& transform, bool lockTextures);
         public: // entity attributes
@@ -108,7 +109,18 @@ namespace TrenchBroom {
             EntityAttributeSnapshotMap performRenameAttributeForNodes(const std::vector<Model::AttributableNode*>& nodes, const std::string& oldName, const std::string& newName);
             void restoreAttributes(const EntityAttributeSnapshotMap& attributes);
         public: // brush resizing
-            std::vector<vm::polygon3> performResizeBrushes(const std::vector<vm::polygon3>& polygons, const vm::vec3& delta);
+            /**
+             * Resize the currently selected brushes by translating faces that match the given polygons by the given
+             * delta.
+             *
+             * Returns the new polygons of the translated faces or an empty optional if the operation fails for any of
+             * the selected faces. If the operation fails, no brushes will be modified.
+             *
+             * @param polygons the polygons describing the faces to be translated
+             * @param delta the delta vector by which the faces should be translated
+             * @return the new polygons or an empty optional if the operation fails
+             */
+            std::optional<std::vector<vm::polygon3>> performResizeBrushes(const std::vector<vm::polygon3>& polygons, const vm::vec3& delta);
         public: // brush face attributes
             void performMoveTextures(const vm::vec3f& cameraUp, const vm::vec3f& cameraRight, const vm::vec2f& delta);
             void performRotateTextures(float angle);
@@ -116,7 +128,6 @@ namespace TrenchBroom {
             void performCopyTexCoordSystemFromFace(const Model::TexCoordSystemSnapshot& coordSystemSnapshot, const Model::BrushFaceAttributes& attribs, const vm::plane3& sourceFacePlane, const Model::WrapStyle wrapStyle);
             void performChangeBrushFaceAttributes(const Model::ChangeBrushFaceAttributesRequest& request);
         public: // vertices
-            bool performFindPlanePoints();
             bool performSnapVertices(FloatType snapTo);
             std::vector<vm::vec3> performMoveVertices(const std::map<Model::BrushNode*, std::vector<vm::vec3>>& vertices, const vm::vec3& delta);
             std::vector<vm::segment3> performMoveEdges(const std::map<Model::BrushNode*, std::vector<vm::segment3>>& edges, const vm::vec3& delta);

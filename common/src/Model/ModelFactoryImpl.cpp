@@ -19,7 +19,9 @@
 
 #include "ModelFactoryImpl.h"
 
+#include "Exceptions.h"
 #include "Model/BrushNode.h"
+#include "Model/BrushError.h"
 #include "Model/BrushFace.h"
 #include "Model/EntityNode.h"
 #include "Model/GroupNode.h"
@@ -27,6 +29,10 @@
 #include "Model/ParallelTexCoordSystem.h"
 #include "Model/ParaxialTexCoordSystem.h"
 #include "Model/WorldNode.h"
+
+#include <kdl/overload.h>
+#include <kdl/result.h>
+#include <kdl/string_utils.h>
 
 #include <cassert>
 
@@ -64,22 +70,18 @@ namespace TrenchBroom {
             return new EntityNode();
         }
 
-        BrushFace ModelFactoryImpl::doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs) const {
+        kdl::result<BrushFace, BrushError> ModelFactoryImpl::doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs) const {
             assert(m_format != MapFormat::Unknown);
-            if (m_format == MapFormat::Valve || m_format == MapFormat::Quake2_Valve || m_format == MapFormat::Quake3_Valve) {
-                return BrushFace(point1, point2, point3, attribs, std::make_unique<ParallelTexCoordSystem>(point1, point2, point3, attribs));
-            } else {
-                return BrushFace(point1, point2, point3, attribs, std::make_unique<ParaxialTexCoordSystem>(point1, point2, point3, attribs));
-            }
+            return m_format == MapFormat::Valve || m_format == MapFormat::Quake2_Valve || m_format == MapFormat::Quake3_Valve
+                ? BrushFace::create(point1, point2, point3, attribs, std::make_unique<ParallelTexCoordSystem>(point1, point2, point3, attribs))
+                : BrushFace::create(point1, point2, point3, attribs, std::make_unique<ParaxialTexCoordSystem>(point1, point2, point3, attribs));
         }
 
-        BrushFace ModelFactoryImpl::doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY) const {
+        kdl::result<BrushFace, BrushError> ModelFactoryImpl::doCreateFace(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY) const {
             assert(m_format != MapFormat::Unknown);
-            if (m_format == MapFormat::Valve || m_format == MapFormat::Quake2_Valve || m_format == MapFormat::Quake3_Valve) {
-                return BrushFace(point1, point2, point3, attribs, std::make_unique<ParallelTexCoordSystem>(texAxisX, texAxisY));
-            } else {
-                return BrushFace(point1, point2, point3, attribs, std::make_unique<ParaxialTexCoordSystem>(point1, point2, point3, attribs));
-            }
+            return m_format == MapFormat::Valve || m_format == MapFormat::Quake2_Valve || m_format == MapFormat::Quake3_Valve
+                ? BrushFace::create(point1, point2, point3, attribs, std::make_unique<ParallelTexCoordSystem>(texAxisX, texAxisY))
+                : BrushFace::create(point1, point2, point3, attribs, std::make_unique<ParaxialTexCoordSystem>(point1, point2, point3, attribs));
         }
     }
 }

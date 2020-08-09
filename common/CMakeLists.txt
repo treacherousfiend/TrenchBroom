@@ -103,6 +103,7 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/Model/BoundsIntersectsNodeVisitor.cpp
         ${COMMON_SOURCE_DIR}/Model/Brush.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushBuilder.cpp
+        ${COMMON_SOURCE_DIR}/Model/BrushError.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushFace.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushFaceAttributes.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushFaceHandle.cpp
@@ -176,13 +177,11 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/Model/NodePredicates.cpp
         ${COMMON_SOURCE_DIR}/Model/NodeSnapshot.cpp
         ${COMMON_SOURCE_DIR}/Model/NodeVisitor.cpp
-        ${COMMON_SOURCE_DIR}/Model/NonIntegerPlanePointsIssueGenerator.cpp
         ${COMMON_SOURCE_DIR}/Model/NonIntegerVerticesIssueGenerator.cpp
         ${COMMON_SOURCE_DIR}/Model/Object.cpp
         ${COMMON_SOURCE_DIR}/Model/ParallelTexCoordSystem.cpp
         ${COMMON_SOURCE_DIR}/Model/ParaxialTexCoordSystem.cpp
         ${COMMON_SOURCE_DIR}/Model/PickResult.cpp
-        ${COMMON_SOURCE_DIR}/Model/PlanePointFinder.cpp
         ${COMMON_SOURCE_DIR}/Model/PointEntityWithBrushesIssueGenerator.cpp
         ${COMMON_SOURCE_DIR}/Model/PointFile.cpp
         ${COMMON_SOURCE_DIR}/Model/Polyhedron_Instantiation.cpp
@@ -337,7 +336,6 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/View/FaceTool.cpp
         ${COMMON_SOURCE_DIR}/View/FaceToolController.cpp
         ${COMMON_SOURCE_DIR}/View/FileTextureCollectionEditor.cpp
-        ${COMMON_SOURCE_DIR}/View/FindPlanePointsCommand.cpp
         ${COMMON_SOURCE_DIR}/View/FlagsEditor.cpp
         ${COMMON_SOURCE_DIR}/View/FlagsPopupEditor.cpp
         ${COMMON_SOURCE_DIR}/View/FlashSelectionAnimation.cpp
@@ -610,6 +608,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Model/BoundsIntersectsNodeVisitor.h
         ${COMMON_SOURCE_DIR}/Model/Brush.h
         ${COMMON_SOURCE_DIR}/Model/BrushBuilder.h
+        ${COMMON_SOURCE_DIR}/Model/BrushError.h
         ${COMMON_SOURCE_DIR}/Model/BrushFace.h
         ${COMMON_SOURCE_DIR}/Model/BrushFaceAttributes.h
         ${COMMON_SOURCE_DIR}/Model/BrushFaceHandle.h
@@ -699,13 +698,11 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Model/NodePredicates.h
         ${COMMON_SOURCE_DIR}/Model/NodeSnapshot.h
         ${COMMON_SOURCE_DIR}/Model/NodeVisitor.h
-        ${COMMON_SOURCE_DIR}/Model/NonIntegerPlanePointsIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/NonIntegerVerticesIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/Object.h
         ${COMMON_SOURCE_DIR}/Model/ParallelTexCoordSystem.h
         ${COMMON_SOURCE_DIR}/Model/ParaxialTexCoordSystem.h
         ${COMMON_SOURCE_DIR}/Model/PickResult.h
-        ${COMMON_SOURCE_DIR}/Model/PlanePointFinder.h
         ${COMMON_SOURCE_DIR}/Model/PointEntityWithBrushesIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/PointFile.h
         ${COMMON_SOURCE_DIR}/Model/Polyhedron.h
@@ -885,7 +882,6 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/View/FaceTool.h
         ${COMMON_SOURCE_DIR}/View/FaceToolController.h
         ${COMMON_SOURCE_DIR}/View/FileTextureCollectionEditor.h
-        ${COMMON_SOURCE_DIR}/View/FindPlanePointsCommand.h
         ${COMMON_SOURCE_DIR}/View/FlagsEditor.h
         ${COMMON_SOURCE_DIR}/View/FlagsPopupEditor.h
         ${COMMON_SOURCE_DIR}/View/FlashSelectionAnimation.h
@@ -1090,6 +1086,7 @@ if (NOT TB_SUPPRESS_PCH AND ${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.16.0")
             <set>
             <string>
             <tuple>
+            <type_traits>
             <unordered_map>
             <unordered_set>
             <utility>
@@ -1132,6 +1129,7 @@ endif()
 set_compiler_config(common)
 
 # Create the cmake script for generating the version information
+get_build_platform(COMMON_PLATFORM_NAME)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/GenerateVersion.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/GenerateVersion.cmake" @ONLY)
 target_include_directories(common PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 add_custom_target(generate_version ${CMAKE_COMMAND} -P "${CMAKE_CURRENT_BINARY_DIR}/GenerateVersion.cmake")

@@ -19,6 +19,7 @@
 
 #include "View/MapDocument.h"
 
+#include "Exceptions.h"
 #include "PreferenceManager.h"
 #include "Preferences.h"
 #include "Assets/AssetUtils.h"
@@ -37,6 +38,7 @@
 #include "Model/AttributeNameWithDoubleQuotationMarksIssueGenerator.h"
 #include "Model/AttributeValueWithDoubleQuotationMarksIssueGenerator.h"
 #include "Model/Brush.h"
+#include "Model/BrushError.h"
 #include "Model/BrushNode.h"
 #include "Model/BrushBuilder.h"
 #include "Model/BrushGeometry.h"
@@ -76,7 +78,6 @@
 #include "Model/ModelUtils.h"
 #include "Model/Node.h"
 #include "Model/NodeVisitor.h"
-#include "Model/NonIntegerPlanePointsIssueGenerator.h"
 #include "Model/NonIntegerVerticesIssueGenerator.h"
 #include "Model/WorldBoundsIssueGenerator.h"
 #include "Model/PointEntityWithBrushesIssueGenerator.h"
@@ -98,7 +99,6 @@
 #include "View/CurrentGroupCommand.h"
 #include "View/DuplicateNodesCommand.h"
 #include "View/EntityDefinitionFileCommand.h"
-#include "View/FindPlanePointsCommand.h"
 #include "View/Grid.h"
 #include "View/MapTextEncoding.h"
 #include "View/MapViewConfig.h"
@@ -128,6 +128,8 @@
 #include <kdl/collection_utils.h>
 #include <kdl/map_utils.h>
 #include <kdl/memory_utils.h>
+#include <kdl/overload.h>
+#include <kdl/result.h>
 #include <kdl/vector_utils.h>
 
 #include <vecmath/polygon.h>
@@ -135,6 +137,7 @@
 #include <vecmath/vec.h>
 #include <vecmath/vec_io.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cstdlib> // for std::abs
 #include <map>
@@ -231,6 +234,10 @@ namespace TrenchBroom {
             ensure(currentLayer != nullptr, "new currentLayer is null");
 
             Transaction transaction(this, "Set Current Layer");
+
+            while (currentGroup() != nullptr) {
+                closeGroup();
+            }
 
             Model::CollectNodesVisitor collect;
             m_currentLayer->recurse(collect);
@@ -1257,27 +1264,12 @@ namespace TrenchBroom {
 
         bool MapDocument::canMoveSelectionToLayer(Model::LayerNode* layer) const {
             ensure(layer != nullptr, "null layer");
-
             const auto& nodes = selectedNodes().nodes();
-            if (nodes.empty()) {
-                return false;
-            }
 
-            for (auto* node : nodes) {
-                auto* nodeGroup = Model::findGroup(node);
-                if (nodeGroup != nullptr) {
-                    return false;
-                }
-            }
+            const bool isAnyNodeInGroup = std::any_of(std::begin(nodes), std::end(nodes), [&](auto* node) { return Model::findGroup(node) != nullptr; });
+            const bool isAnyNodeInOtherLayer = std::any_of(std::begin(nodes), std::end(nodes), [&](auto* node) { return Model::findLayer(node) != layer; });
 
-            for (auto* node : nodes) {
-                auto* nodeLayer = Model::findLayer(node);
-                if (nodeLayer != layer) {
-                    return true;
-                }
-            }
-
-            return true;
+            return !nodes.empty() && !isAnyNodeInGroup && isAnyNodeInOtherLayer;
         }
 
         void MapDocument::hideLayers(const std::vector<Model::LayerNode*>& layers) {
@@ -1309,10 +1301,7 @@ namespace TrenchBroom {
             for (auto* layer : m_world->allLayers()) {
                 const bool shouldShowLayer = kdl::vec_contains(layers, layer);
 
-                if (shouldShowLayer && layer->hidden()) {
-                    return true;
-                }
-                if (!shouldShowLayer && layer->shown()) {
+                if (shouldShowLayer != layer->visible()) {
                     return true;
                 }
             }
@@ -1477,17 +1466,22 @@ namespace TrenchBroom {
 
         bool MapDocument::createBrush(const std::vector<vm::vec3>& points) {
             Model::BrushBuilder builder(m_world.get(), m_worldBounds, m_game->defaultFaceAttribs());
-            Model::BrushNode* brushNode = m_world->createBrush(builder.createBrush(points, currentTextureName()));
-            if (!brushNode->brush().fullySpecified()) {
-                delete brushNode;
-                return false;
-            }
-
-            Transaction transaction(this, "Create Brush");
-            deselectAll();
-            addNode(brushNode, parentForNodes());
-            select(brushNode);
-            return true;
+            return builder.createBrush(points, currentTextureName())
+                .visit(kdl::overload {
+                    [&](Model::Brush&& b) {
+                        Model::BrushNode* brushNode = m_world->createBrush(std::move(b));
+                        
+                        Transaction transaction(this, "Create Brush");
+                        deselectAll();
+                        addNode(brushNode, parentForNodes());
+                        select(brushNode);
+                        return true;
+                    },
+                    [&](const Model::BrushError e) {
+                        error() << "Could not create brush: " << e;
+                        return false;
+                    }
+                });
         }
 
         bool MapDocument::csgConvexMerge() {
@@ -1518,32 +1512,40 @@ namespace TrenchBroom {
             }
 
             const Model::BrushBuilder builder(m_world.get(), m_worldBounds, m_game->defaultFaceAttribs());
-            Model::Brush brush = builder.createBrush(polyhedron, currentTextureName());
-            for (const Model::BrushNode* selectedBrushNode : selectedNodes().brushes()) {
-                brush.cloneFaceAttributesFrom(selectedBrushNode->brush());
-            }
+            return builder.createBrush(polyhedron, currentTextureName())
+                .visit(kdl::overload {
+                    [&](Model::Brush&& b) {
+                        for (const Model::BrushNode* selectedBrushNode : selectedNodes().brushes()) {
+                            b.cloneFaceAttributesFrom(selectedBrushNode->brush());
+                        }
 
-            // The nodelist is either empty or contains only brushes.
-            const auto toRemove = selectedNodes().nodes();
+                        // The nodelist is either empty or contains only brushes.
+                        const auto toRemove = selectedNodes().nodes();
 
-            // We could be merging brushes that have different parents; use the parent of the first brush.
-            Model::Node* parentNode = nullptr;
-            if (!selectedNodes().brushes().empty()) {
-                parentNode = selectedNodes().brushes().front()->parent();
-            } else if (!selectedBrushFaces().empty()) {
-                parentNode = selectedBrushFaces().front().node()->parent();
-            } else {
-                parentNode = parentForNodes();
-            }
+                        // We could be merging brushes that have different parents; use the parent of the first brush.
+                        Model::Node* parentNode = nullptr;
+                        if (!selectedNodes().brushes().empty()) {
+                            parentNode = selectedNodes().brushes().front()->parent();
+                        } else if (!selectedBrushFaces().empty()) {
+                            parentNode = selectedBrushFaces().front().node()->parent();
+                        } else {
+                            parentNode = parentForNodes();
+                        }
 
-            Model::BrushNode* brushNode = new Model::BrushNode(std::move(brush));
-            
-            const Transaction transaction(this, "CSG Convex Merge");
-            deselectAll();
-            addNode(brushNode, parentNode);
-            removeNodes(toRemove);
-            select(brushNode);
-            return true;
+                        Model::BrushNode* brushNode = new Model::BrushNode(std::move(b));
+                        
+                        const Transaction transaction(this, "CSG Convex Merge");
+                        deselectAll();
+                        addNode(brushNode, parentNode);
+                        removeNodes(toRemove);
+                        select(brushNode);
+                        return true;
+                    },
+                    [&](const Model::BrushError e) {
+                        error() << "Could not create brush: " << e;
+                        return false;
+                    },
+                });
         }
 
         bool MapDocument::csgSubtract() {
@@ -1564,11 +1566,18 @@ namespace TrenchBroom {
             
             for (Model::BrushNode* minuendNode : minuendNodes) {
                 const Model::Brush& minuend = minuendNode->brush();
-                std::vector<Model::Brush> resultBrushes = minuend.subtract(*m_world, m_worldBounds, currentTextureName(), subtrahends);
-                if (!resultBrushes.empty()) {
-                    const std::vector<Model::BrushNode*> resultNodes = kdl::vec_transform(std::move(resultBrushes), [&](auto brush) { return m_world->createBrush(std::move(brush)); });
-                    kdl::vec_append(toAdd[minuendNode->parent()], resultNodes);
-                }
+                minuend.subtract(*m_world, m_worldBounds, currentTextureName(), subtrahends)
+                    .visit(kdl::overload {
+                        [&](const std::vector<Model::Brush>& brushes) {
+                            if (!brushes.empty()) {
+                                const std::vector<Model::BrushNode*> resultNodes = kdl::vec_transform(std::move(brushes), [&](auto b) { return m_world->createBrush(std::move(b)); });
+                                kdl::vec_append(toAdd[minuendNode->parent()], resultNodes);
+                            }
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not create brush: " << e;
+                        },
+                    });
                 toRemove.push_back(minuendNode);
             }
 
@@ -1589,15 +1598,20 @@ namespace TrenchBroom {
             Model::Brush intersection = brushes.front()->brush();
 
             bool valid = true;
-            for (auto it = std::begin(brushes), end = std::end(brushes); it != end && valid; ++it) {
+            for (auto it = std::next(std::begin(brushes)), end = std::end(brushes); it != end && valid; ++it) {
                 Model::BrushNode* brushNode = *it;
                 const Model::Brush& brush = brushNode->brush();
-                
-                try {
-                    intersection.intersect(m_worldBounds, brush);
-                } catch (const GeometryException&) {
-                    valid = false;
-                }
+                valid = intersection.intersect(m_worldBounds, brush)
+                    .visit(kdl::overload {
+                        [&](Model::Brush&& b) {
+                            intersection = std::move(b);
+                            return true;
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not intersect brushes: " << e;
+                            return false;
+                        },
+                    });
             }
 
             const std::vector<Model::Node*> toRemove(std::begin(brushes), std::end(brushes));
@@ -1630,16 +1644,25 @@ namespace TrenchBroom {
                 const Model::Brush& brush = brushNode->brush();
 
                 // make an shrunken copy of brush
-                Model::Brush shrunken = brush;
-                if (shrunken.expand(m_worldBounds, -1.0 * static_cast<FloatType>(m_grid->actualSize()), true)) {
-                    std::vector<Model::Brush> fragments = brush.subtract(*m_world, m_worldBounds, currentTextureName(), shrunken);
-                    std::vector<Model::BrushNode*> fragmentNodes = kdl::vec_transform(std::move(fragments), [](auto&& b) {
-                        return new Model::BrushNode(std::move(b));
-                    });
+                brush.expand(m_worldBounds, -1.0 * static_cast<FloatType>(m_grid->actualSize()), true)
+                    .and_then(
+                        [&](const Model::Brush& shrunken) {
+                            return brush.subtract(*m_world, m_worldBounds, currentTextureName(), shrunken);
+                        }
+                    ).visit(kdl::overload {
+                        [&](const std::vector<Model::Brush>& fragments) {
+                            auto fragmentNodes = kdl::vec_transform(std::move(fragments), [](auto&& b) {
+                                return new Model::BrushNode(std::move(b));
+                            });
 
-                    kdl::vec_append(toAdd[brushNode->parent()], fragmentNodes);
-                    toRemove.push_back(brushNode);
-                }
+                            kdl::vec_append(toAdd[brushNode->parent()], fragmentNodes);
+                            toRemove.push_back(brushNode);
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not hollow brush: " << e;
+                        },
+                    });
+                
             }
 
             Transaction transaction(this, "CSG Hollow");
@@ -1656,10 +1679,25 @@ namespace TrenchBroom {
             std::map<Model::Node*, std::vector<Model::Node*>> clippedBrushes;
 
             for (const Model::BrushNode* originalBrush : brushes) {
-                Model::BrushFace clipFace = m_world->createFace(p1, p2, p3, Model::BrushFaceAttributes(currentTextureName()));
-                Model::Brush clippedBrush = originalBrush->brush();
-                if (clippedBrush.clip(m_worldBounds, std::move(clipFace))) {
-                    clippedBrushes[originalBrush->parent()].push_back(new Model::BrushNode(std::move(clippedBrush)));
+                const bool success = m_world->createFace(p1, p2, p3, Model::BrushFaceAttributes(currentTextureName()))
+                    .and_then(
+                        [&](Model::BrushFace&& clipFace) {
+                            return originalBrush->brush().clip(m_worldBounds, std::move(clipFace));
+                        }
+                    ).and_then(
+                        [&](Model::Brush&& clippedBrush) {
+                            clippedBrushes[originalBrush->parent()].push_back(new Model::BrushNode(std::move(clippedBrush)));
+                            return kdl::void_result;
+                        }
+                    ).handle_errors(
+                        [&](const Model::BrushError e) {
+                            error() << "Could not clip brushes: " << e;
+                        }
+                    );
+                
+                if (!success) {
+                    kdl::map_clear_and_delete(clippedBrushes);
+                    return false;
                 }
             }
 
@@ -1740,13 +1778,7 @@ namespace TrenchBroom {
         }
 
         bool MapDocument::snapVertices(const FloatType snapTo) {
-            assert(m_selectedNodes.hasOnlyBrushes());
             const auto result = executeAndStore(SnapBrushVerticesCommand::snap(snapTo));
-            return result->success();
-        }
-
-        bool MapDocument::findPlanePoints() {
-            const auto result = executeAndStore(FindPlanePointsCommand::findPlanePoints());
             return result->success();
         }
 
@@ -1821,7 +1853,7 @@ namespace TrenchBroom {
 
         private:
             std::unique_ptr<CommandResult> doPerformDo(MapDocumentCommandFacade*) override {
-                throw GeometryException();
+                throw CommandProcessorException();
             }
 
             std::unique_ptr<CommandResult> doPerformUndo(MapDocumentCommandFacade*) override {
@@ -2319,7 +2351,6 @@ namespace TrenchBroom {
             m_world->registerIssueGenerator(new Model::PointEntityWithBrushesIssueGenerator());
             m_world->registerIssueGenerator(new Model::LinkSourceIssueGenerator());
             m_world->registerIssueGenerator(new Model::LinkTargetIssueGenerator());
-            m_world->registerIssueGenerator(new Model::NonIntegerPlanePointsIssueGenerator());
             m_world->registerIssueGenerator(new Model::NonIntegerVerticesIssueGenerator());
             m_world->registerIssueGenerator(new Model::MixedBrushContentsIssueGenerator());
             m_world->registerIssueGenerator(new Model::WorldBoundsIssueGenerator(worldBounds()));

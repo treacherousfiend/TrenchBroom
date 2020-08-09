@@ -20,15 +20,20 @@
 #include "MapReader.h"
 
 #include "IO/ParserStatus.h"
-#include "Model/BrushNode.h"
+#include "Model/BrushError.h"
 #include "Model/BrushFace.h"
+#include "Model/BrushNode.h"
 #include "Model/EntityNode.h"
 #include "Model/EntityAttributes.h"
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
+#include "Model/LockState.h"
 #include "Model/ModelFactory.h"
+#include "Model/VisibilityState.h"
 
 #include <kdl/map_utils.h>
+#include <kdl/overload.h>
+#include <kdl/result.h>
 #include <kdl/string_format.h>
 #include <kdl/string_utils.h>
 #include <kdl/vector_utils.h>
@@ -131,9 +136,16 @@ namespace TrenchBroom {
         }
 
         void MapReader::onBrushFace(const size_t line, const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const Model::BrushFaceAttributes& attribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY, ParserStatus& status) {
-            Model::BrushFace face = m_factory->createFace(point1, point2, point3, attribs, texAxisX, texAxisY);
-            face.setFilePosition(line, 1u);
-            onBrushFace(std::move(face), status);
+            m_factory->createFace(point1, point2, point3, attribs, texAxisX, texAxisY)
+                .visit(kdl::overload {
+                    [&](Model::BrushFace&& face) {
+                        face.setFilePosition(line, 1u);
+                        onBrushFace(std::move(face), status);
+                    },
+                    [&](const Model::BrushError e) {
+                        status.error(line, kdl::str_to_string("Skipping face: ", e));
+                    },
+                });
         }
 
         void MapReader::createLayer(const size_t line, const std::vector<Model::EntityAttribute>& attributes, const ExtraAttributes& extraAttributes, ParserStatus& status) {
@@ -167,6 +179,12 @@ namespace TrenchBroom {
             if (!kdl::str_is_blank(layerSortIndex)) {
                 // This is optional (not present on maps saved in TB 2020.1 and earlier)
                 layer->addOrUpdateAttribute(Model::AttributeNames::LayerSortIndex, layerSortIndex);
+            }
+            if (findAttribute(attributes, Model::AttributeNames::LayerLocked) == Model::AttributeValues::LayerLockedValue) {
+                layer->setLockState(Model::LockState::Lock_Locked);
+            }
+            if (findAttribute(attributes, Model::AttributeNames::LayerHidden) == Model::AttributeValues::LayerHiddenValue) {
+                layer->setVisibilityState(Model::VisibilityState::Visibility_Hidden);
             }
 
             setExtraAttributes(layer, extraAttributes);
@@ -226,18 +244,24 @@ namespace TrenchBroom {
         }
 
         void MapReader::createBrush(const size_t startLine, const size_t lineCount, const ExtraAttributes& extraAttributes, ParserStatus& status) {
-            try {
-                Model::BrushNode* brush = m_factory->createBrush(Model::Brush(m_worldBounds, std::move(m_faces)));
-                setFilePosition(brush, startLine, lineCount);
-                setExtraAttributes(brush, extraAttributes);
-
-                onBrush(m_brushParent, brush, status);
-                m_faces.clear();
-            } catch (GeometryException& e) {
-                status.error(startLine, kdl::str_to_string("Skipping brush: ", e.what()));
-                m_faces.clear(); // the faces will have been deleted by the brush's constructor
-            }
-
+            Model::Brush::create(m_worldBounds, std::move(m_faces))
+                .and_then(
+                    [&](Model::Brush&& b) {
+                        Model::BrushNode* brushNode = m_factory->createBrush(std::move(b));
+                        setFilePosition(brushNode, startLine, lineCount);
+                        setExtraAttributes(brushNode, extraAttributes);
+                        
+                        onBrush(m_brushParent, brushNode, status);
+                        m_faces.clear();
+                        
+                        return kdl::void_result;
+                    }
+                ).handle_errors(
+                    [&](const Model::BrushError e) {
+                        status.error(startLine, kdl::str_to_string("Skipping brush: ", e));
+                        m_faces.clear();
+                    }
+                );
         }
 
         MapReader::ParentInfo::Type MapReader::storeNode(Model::Node* node, const std::vector<Model::EntityAttribute>& attributes, ParserStatus& status) {

@@ -137,7 +137,7 @@ The sizes of the editing area, the inspector and the info bar can be changed by 
 
 ### The Editing Area
 
-The editing area is divided in two sections: The context sensitive info bar at the top and the viewports below. The info bar contains different controls depending on which tool is currently activated. You can switch between tools such as the rotate tool and the vertex tool using the toolbar buttons, the menu or with the respective keyboard shortcuts. The context sensitive controls allow you to perform certain actions that are relevant to the current tool such as setting the rotation center when in the rotate tool or moving objects by a given delta when in the default move tool. Additonally, there is a button labeled "View" on the right of the info bar. Clicking on this button unfolds a dropdown containing controls to [filter out](#filtering_rendering_options) certain objects in the viewports or to change how the viewport [renders its contents](#filtering_rendering_options).
+The editing area is divided in two sections: The context sensitive info bar at the top and the viewports below. The info bar contains different controls depending on which tool is currently activated. You can switch between tools such as the rotate tool and the vertex tool using the toolbar buttons, the menu or with the respective keyboard shortcuts. The context sensitive controls allow you to perform certain actions that are relevant to the current tool such as setting the rotation center when in the rotate tool or moving objects by a given delta when in the default move tool. Additonally, there is a button labeled "View Options" on the right of the info bar. Clicking on this button unfolds a dropdown containing controls to [filter out](#filtering_rendering_options) certain objects in the viewports or to change how the viewport [renders its contents](#filtering_rendering_options).
 
 ![The info bar with view dropdown (Windows 10)](images/ViewDropdown.png)
 
@@ -1155,7 +1155,7 @@ TrenchBroom supports compiling your maps from inside the editor. This means that
 
 ![Compilation Dialog (Windows 10)](images/CompilationDialog.png)
 
-This dialog allows you to create compilation profiles, which are listed on the left of the dialog. Each compilation profile has a name, a working directory, and a list of tasks. Click the '+' button below the profile list to create a new compilation profile, or click the '-' button to delete the selected profile. If you select a profile, you can edit its name, working directory, and tasks on the right side of the dialog.
+This dialog allows you to create compilation profiles, which are listed on the left of the dialog. Each compilation profile has a name, a working directory, and a list of tasks. Click the '+' button below the profile list to create a new compilation profile, or click the '-' button to delete the selected profile. To duplicate a profile, right click on it and select "Duplicate" from the menu. If you select a profile, you can edit its name, working directory, and tasks on the right side of the dialog.
 
 Name
 :	The name of this compilation profile. Need not be unique and can even be empty.
@@ -1749,26 +1749,27 @@ Since an expression can be another instance of a binary operator, you can simply
 
 Operator Name 					Precedence
 ----     ----                   ----
-`*`      Multiplication			11
-`/`      Division				11
-`%`      Modulus				11
-`+`      Addition 				10
-`-`      Subtraction 			10
-`<<` 	 Bitwise shift left     9
-`>>` 	 Bitwise shift right    9
-`<`      Less 					8
-`<=`     Less or equal 			8
-`>`      Greater 				8
-`>=`     Greater or equal 		8
-`==`     Equal 					7
-`!=`     Inequal 				7
-`&` 	 Bitwise and   			6
-`^` 	 Bitwise xor   			5
-`|` 	 Bitwise or             4
-`&&`     Logical and 			3
-`||`     Logical or 			2
-`[]`     Range 					1
-`->`     Case 					0
+`*`      Multiplication			12
+`/`      Division				12
+`%`      Modulus				12
+`+`      Addition 				11
+`-`      Subtraction 			11
+`<<` 	 Bitwise shift left     10
+`>>` 	 Bitwise shift right    10
+`<`      Less 					9
+`<=`     Less or equal 			9
+`>`      Greater 				9
+`>=`     Greater or equal 		9
+`==`     Equal 					8
+`!=`     Inequal 				8
+`&` 	 Bitwise and   			7
+`^` 	 Bitwise xor   			6
+`|` 	 Bitwise or             5
+`&&`     Logical and 			4
+`||`     Logical or 			3
+`..`     Range 					2
+`->`     Case 					1
+` `      Other operators        13
 
 Some examples:
 
@@ -2416,7 +2417,7 @@ Open the "About TrenchBroom" dialog from the menu. The light gray text on the le
 
 [TrenchBroom on GitHub]: http://github.com/kduske/TrenchBroom/
 [TrenchBroom issue tracker]: http://github.com/kduske/TrenchBroom/issues/
-[TrenchBroom Discord]: https://discord.gg/n7K8Cps
+[TrenchBroom Discord]: https://discord.gg/WGf9uve
 [func_msgboard]: http://celephais.net/board/
 [Quake Tools]: https://joshua.itch.io/quake-tools
 [Tome of Preach]: https://tomeofpreach.wordpress.com/

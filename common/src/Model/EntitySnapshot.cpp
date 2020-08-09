@@ -19,7 +19,10 @@
 
 #include "EntitySnapshot.h"
 
+#include "Exceptions.h"
 #include "Model/EntityNode.h"
+
+#include <kdl/result.h>
 
 namespace TrenchBroom {
     namespace Model {
@@ -27,8 +30,9 @@ namespace TrenchBroom {
         m_entity(entity),
         m_attributesSnapshot(entity->attributes()) {}
 
-        void EntitySnapshot::doRestore(const vm::bbox3& /* worldBounds */) {
+        kdl::result<void, SnapshotErrors> EntitySnapshot::doRestore(const vm::bbox3& /* worldBounds */) {
             m_entity->setAttributes(m_attributesSnapshot);
+            return kdl::result<void, SnapshotErrors>::success();
         }
     }
 }

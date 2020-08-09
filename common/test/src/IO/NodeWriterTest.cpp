@@ -21,6 +21,7 @@
 
 #include "GTestCompat.h"
 
+#include "Exceptions.h"
 #include "IO/NodeWriter.h"
 #include "Model/BrushNode.h"
 #include "Model/BrushBuilder.h"
@@ -28,9 +29,12 @@
 #include "Model/BrushFaceAttributes.h"
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
+#include "Model/LockState.h"
 #include "Model/MapFormat.h"
 #include "Model/WorldNode.h"
+#include "Model/VisibilityState.h"
 
+#include <kdl/result.h>
 #include <kdl/string_compare.h>
 
 #include <iostream>
@@ -70,10 +74,12 @@ namespace TrenchBroom {
                          "}\n", result.c_str());
         }
 
-        TEST_CASE("NodeWriterTest.writeDefaultLayerColor", "[NodeWriterTest]") {
+        TEST_CASE("NodeWriterTest.writeDefaultLayerAttributes", "[NodeWriterTest]") {
             Model::WorldNode map(Model::MapFormat::Standard);
             map.addOrUpdateAttribute("classname", "worldspawn");
             map.defaultLayer()->setLayerColor(Color(0.25f, 0.75f, 1.0f));
+            map.defaultLayer()->setVisibilityState(Model::VisibilityState::Visibility_Hidden);
+            map.defaultLayer()->setLockState(Model::LockState::Lock_Locked);
 
             std::stringstream str;
             NodeWriter writer(map, str);
@@ -85,6 +91,8 @@ R"(// entity 0
 {
 "classname" "worldspawn"
 "_tb_layer_color" "0.25 0.75 1"
+"_tb_layer_locked" "1"
+"_tb_layer_hidden" "1"
 }
 )";
             CHECK(actual == expected);
@@ -97,7 +105,7 @@ R"(// entity 0
             map.addOrUpdateAttribute("classname", "worldspawn");
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::Brush brush1 = builder.createCube(64.0, "none");
+            Model::Brush brush1 = builder.createCube(64.0, "none").value();
             for (Model::BrushFace& face : brush1.faces()) {
                 Model::BrushFaceAttributes attributes = face.attributes();
                 attributes.setColor(Color(1.0f, 2.0f, 3.0f));
@@ -106,7 +114,7 @@ R"(// entity 0
             Model::BrushNode* brushNode1 = map.createBrush(std::move(brush1));
             map.defaultLayer()->addChild(brushNode1);
 
-            Model::BrushNode* brushNode2 = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode2 = map.createBrush(builder.createCube(64.0, "none").value());
             map.defaultLayer()->addChild(brushNode2);
 
             std::stringstream str;
@@ -149,7 +157,7 @@ R"(// entity 0
             map.addOrUpdateAttribute("classname", "worldspawn");
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::Brush brush1 = builder.createCube(64.0, "none");
+            Model::Brush brush1 = builder.createCube(64.0, "none").value();
             for (Model::BrushFace& face : brush1.faces()) {
                 Model::BrushFaceAttributes attributes = face.attributes();
                 attributes.setSurfaceValue(32.0f);
@@ -190,7 +198,7 @@ R"(// entity 0
             map.addOrUpdateAttribute("classname", "worldspawn");
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brush1 = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brush1 = map.createBrush(builder.createCube(64.0, "none").value());
             map.defaultLayer()->addChild(brush1);
 
             std::stringstream str;
@@ -224,7 +232,7 @@ R"(// entity 0
             map.addOrUpdateAttribute("classname", "worldspawn");
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
             map.defaultLayer()->addChild(brushNode);
 
             std::stringstream str;
@@ -262,7 +270,7 @@ R"(// entity 0
             map.addChild(layer);
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
             layer->addChild(brushNode);
 
             std::stringstream str;
@@ -304,6 +312,8 @@ R"(// entity 0
 
             Model::LayerNode* layer = map.createLayer("Custom Layer");
             layer->setSortIndex(1);
+            layer->setLockState(Model::LockState::Lock_Locked);
+            layer->setVisibilityState(Model::VisibilityState::Visibility_Hidden);
             map.addChild(layer);
 
             std::stringstream str;
@@ -322,6 +332,8 @@ R"(// entity 0
 "_tb_name" "Custom Layer"
 "_tb_id" "*"
 "_tb_layer_sort_index" "1"
+"_tb_layer_locked" "1"
+"_tb_layer_hidden" "1"
 }
 )";
 
@@ -339,7 +351,7 @@ R"(// entity 0
             map.defaultLayer()->addChild(group);
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
             group->addChild(brushNode);
 
             std::stringstream str;
@@ -385,7 +397,7 @@ R"(// entity 0
             layer->addChild(group);
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
             group->addChild(brushNode);
 
             std::stringstream str;
@@ -442,7 +454,7 @@ R"(// entity 0
             outer->addChild(inner);
 
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
             inner->addChild(brushNode);
 
             std::stringstream str;
@@ -500,10 +512,10 @@ R"(// entity 0
 
             Model::BrushBuilder builder(&map, worldBounds);
 
-            Model::BrushNode* worldBrush = map.createBrush(builder.createCube(64.0, "some"));
+            Model::BrushNode* worldBrush = map.createBrush(builder.createCube(64.0, "some").value());
             Model::GroupNode* outer = map.createGroup("Outer Group");
             Model::GroupNode* inner = map.createGroup("Inner Group");
-            Model::BrushNode* innerBrush = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* innerBrush = map.createBrush(builder.createCube(64.0, "none").value());
 
             inner->addChild(innerBrush);
             outer->addChild(inner);
@@ -559,7 +571,7 @@ R"(// entity 0
 
             Model::WorldNode map(Model::MapFormat::Standard);
             Model::BrushBuilder builder(&map, worldBounds);
-            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none"));
+            Model::BrushNode* brushNode = map.createBrush(builder.createCube(64.0, "none").value());
 
             std::stringstream str;
             NodeWriter writer(map, str);

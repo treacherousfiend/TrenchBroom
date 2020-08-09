@@ -50,7 +50,6 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/Model/EntityNodeTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/GameTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/NodeTest.cpp"
-        "${COMMON_TEST_SOURCE_DIR}/Model/PlanePointFinderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/PolyhedronTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/PortalFileTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/TaggingTest.cpp"
@@ -128,7 +127,6 @@ if(WIN32)
     add_custom_command(TARGET common-test POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:freeimage>" "$<TARGET_FILE_DIR:common-test>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:freetype>" "$<TARGET_FILE_DIR:common-test>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:z>" "$<TARGET_FILE_DIR:common-test>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt5::Widgets>" "$<TARGET_FILE_DIR:common-test>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt5::Gui>" "$<TARGET_FILE_DIR:common-test>"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt5::Core>" "$<TARGET_FILE_DIR:common-test>"

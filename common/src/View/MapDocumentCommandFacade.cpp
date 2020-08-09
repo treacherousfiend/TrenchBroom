@@ -19,13 +19,15 @@
 
 #include "MapDocumentCommandFacade.h"
 
+#include "Exceptions.h"
 #include "Preferences.h"
 #include "PreferenceManager.h"
 #include "Assets/EntityDefinitionFileSpec.h"
 #include "Assets/TextureManager.h"
 #include "Model/Brush.h"
-#include "Model/BrushNode.h"
+#include "Model/BrushError.h"
 #include "Model/BrushFace.h"
+#include "Model/BrushNode.h"
 #include "Model/ChangeBrushFaceAttributesRequest.h"
 #include "Model/CollectSelectableBrushFacesVisitor.h"
 #include "Model/CollectSelectableNodesVisitor.h"
@@ -45,6 +47,8 @@
 #include "View/Selection.h"
 
 #include <kdl/map_utils.h>
+#include <kdl/overload.h>
+#include <kdl/result.h>
 #include <kdl/string_format.h>
 #include <kdl/string_utils.h>
 #include <kdl/vector_set.h>
@@ -424,53 +428,24 @@ namespace TrenchBroom {
             groupWasClosedNotifier(previousGroup);
         }
 
-        class CanTransformVisitor : public Model::ConstNodeVisitor, public Model::NodeQuery<bool> {
-        private:
-            vm::mat4x4 m_transform;
-            vm::bbox3 m_worldBounds;
-        public:
-            CanTransformVisitor(const vm::mat4x4& transform, const vm::bbox3& worldBounds) :
-                m_transform(transform),
-                m_worldBounds(worldBounds) {}
-        private:
-            void doVisit(const Model::WorldNode*) override  { setResult(true); }
-            void doVisit(const Model::LayerNode*) override  { setResult(true); }
-            void doVisit(const Model::GroupNode*) override  { setResult(true); }
-            void doVisit(const Model::EntityNode*) override { setResult(true); }
-            void doVisit(const Model::BrushNode* brushNode) override {
-                const Model::Brush& brush = brushNode->brush();
-                setResult(brush.canTransform(m_transform, m_worldBounds));
-            }
-            bool doCombineResults(const bool oldResult, const bool newResult) const override {
-                return newResult && oldResult;
-            }
-        };
-
         bool MapDocumentCommandFacade::performTransform(const vm::mat4x4 &transform, const bool lockTextures) {
-          // Test whether all brushes can be transformed; abort if any fail.
-          CanTransformVisitor canTransform(transform, m_worldBounds);
-          for (const auto* node : m_selectedNodes.nodes()) {
-              node->acceptAndRecurse(canTransform);
-          }
-          if (canTransform.hasResult() && !canTransform.result()) {
-              return false;
-          }
-
-          const std::vector<Model::Node*> &nodes = m_selectedNodes.nodes();
+          const std::vector<Model::Node*>& nodes = m_selectedNodes.nodes();
           const std::vector<Model::Node*> parents = collectParents(nodes);
 
-          Notifier<const std::vector<Model::Node*> &>::NotifyBeforeAndAfter
-              notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier,
-                            parents);
-          Notifier<const std::vector<Model::Node*> &>::NotifyBeforeAndAfter notifyNodes(
-              nodesWillChangeNotifier, nodesDidChangeNotifier, nodes);
+          Notifier<const std::vector<Model::Node*> &>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
+          Notifier<const std::vector<Model::Node*> &>::NotifyBeforeAndAfter notifyNodes(nodesWillChangeNotifier, nodesDidChangeNotifier, nodes);
 
-          Model::TransformObjectVisitor visitor(transform, lockTextures,
-                                                m_worldBounds);
+          Model::TransformObjectVisitor visitor(m_worldBounds, transform, lockTextures);
           Model::Node::accept(std::begin(nodes), std::end(nodes), visitor);
 
           invalidateSelectionBounds();
-          return true;
+
+          if (visitor.error()) {
+              error() << "Could not transform objects: " << *visitor.error();
+              return false;
+          } else {
+              return true;
+          }
         }
 
         MapDocumentCommandFacade::EntityAttributeSnapshotMap MapDocumentCommandFacade::performSetAttribute(const std::string& name, const std::string& value) {
@@ -639,20 +614,41 @@ namespace TrenchBroom {
             invalidateSelectionBounds();
         }
 
-        std::vector<vm::polygon3> MapDocumentCommandFacade::performResizeBrushes(const std::vector<vm::polygon3>& polygons, const vm::vec3& delta) {
-            std::vector<vm::polygon3> result;
-
+        std::optional<std::vector<vm::polygon3>> MapDocumentCommandFacade::performResizeBrushes(const std::vector<vm::polygon3>& polygons, const vm::vec3& delta) {
             const std::vector<Model::BrushNode*>& selectedBrushes = m_selectedNodes.brushes();
+
+            std::vector<vm::polygon3> result;
             std::vector<Model::Node*> changedNodes;
+            std::map<Model::BrushNode*, Model::Brush> changes;
 
             for (Model::BrushNode* brushNode : selectedBrushes) {
-                const Model::Brush& brush = brushNode->brush();
-                if (const auto faceIndex = brush.findFace(polygons)) {
-                    if (!brush.canMoveBoundary(m_worldBounds, *faceIndex, delta)) {
-                        return result;
-                    }
+                const Model::Brush& original = brushNode->brush();
+                const auto faceIndex = original.findFace(polygons);
+                if (!faceIndex) {
+                    // We allow resizing only some of the brushes
+                    continue;
+                }
 
-                    changedNodes.push_back(brushNode);
+                const bool success = original.moveBoundary(m_worldBounds, *faceIndex, delta, pref(Preferences::TextureLock))
+                    .visit(kdl::overload {
+                        [&](Model::Brush&& copy) -> bool {
+                            if (m_worldBounds.contains(copy.bounds())) {
+                                result.push_back(copy.face(*faceIndex).polygon());
+                                changedNodes.push_back(brushNode);
+                                changes.emplace(brushNode, std::move(copy));
+                                return true;
+                            } else {
+                                return false;
+                            }
+                        },
+                        [&](const Model::BrushError e) -> bool {
+                            error() << "Could not resize brush: " << e;
+                            return false;
+                        }
+                    });
+
+                if (!success) {
+                    return std::nullopt;
                 }
             }
 
@@ -660,19 +656,12 @@ namespace TrenchBroom {
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyNodes(nodesWillChangeNotifier, nodesDidChangeNotifier, changedNodes);
 
-            for (Model::BrushNode* brushNode : selectedBrushes) {
-                Model::Brush brush = brushNode->brush();
-                if (const auto faceIndex = brush.findFace(polygons)) {
-                    brush.moveBoundary(m_worldBounds, *faceIndex, delta, pref(Preferences::TextureLock));
-                    const Model::BrushFace& face = brush.face(*faceIndex);
-                    result.push_back(face.polygon());
-                    brushNode->setBrush(std::move(brush));
-                }
+            for (auto& [brushNode, brush] : changes) {
+                brushNode->setBrush(std::move(brush));
             }
-            
             invalidateSelectionBounds();
 
-            return result;
+            return { result };
         }
 
         void MapDocumentCommandFacade::performMoveTextures(const vm::vec3f& cameraUp, const vm::vec3f& cameraRight, const vm::vec2f& delta) {
@@ -726,26 +715,8 @@ namespace TrenchBroom {
             }
         }
 
-        bool MapDocumentCommandFacade::performFindPlanePoints() {
-            const std::vector<Model::BrushNode*>& brushNodes = m_selectedNodes.brushes();
-
-            const std::vector<Model::Node*> nodes(std::begin(brushNodes), std::end(brushNodes));
-            const std::vector<Model::Node*> parents = collectParents(nodes);
-
-            Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
-            Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyNodes(nodesWillChangeNotifier, nodesDidChangeNotifier, nodes);
-
-            for (Model::BrushNode* brushNode : brushNodes) {
-                Model::Brush brush = brushNode->brush();
-                brush.findIntegerPlanePoints(m_worldBounds);
-                brushNode->setBrush(std::move(brush));
-            }
-
-            return true;
-        }
-
         bool MapDocumentCommandFacade::performSnapVertices(const FloatType snapTo) {
-            const std::vector<Model::BrushNode*>& brushNodes = m_selectedNodes.brushes();
+            const std::vector<Model::BrushNode*> brushNodes = m_selectedNodes.brushesRecursively();
 
             const std::vector<Model::Node*> nodes(std::begin(brushNodes), std::end(brushNodes));
             const std::vector<Model::Node*> parents = collectParents(nodes);
@@ -758,10 +729,17 @@ namespace TrenchBroom {
 
             for (Model::BrushNode* brushNode : brushNodes) {
                 if (brushNode->brush().canSnapVertices(m_worldBounds, snapTo)) {
-                    Model::Brush brush = brushNode->brush();
-                    brush.snapVertices(m_worldBounds, snapTo, pref(Preferences::UVLock));
-                    brushNode->setBrush(std::move(brush));
-                    succeededBrushCount += 1;
+                    brushNode->brush().snapVertices(m_worldBounds, snapTo, pref(Preferences::UVLock))
+                        .visit(kdl::overload {
+                            [&](Model::Brush&& brush) {
+                                brushNode->setBrush(std::move(brush));
+                                succeededBrushCount += 1;
+                            },
+                            [&](const Model::BrushError e) {
+                                error() << "Could not snap vertices: " << e;
+                                failedBrushCount += 1;
+                            },
+                        });
                 } else {
                     failedBrushCount += 1;
                 }
@@ -789,11 +767,19 @@ namespace TrenchBroom {
             std::vector<vm::vec3> newVertexPositions;
             for (const auto& entry : vertices) {
                 Model::BrushNode* brushNode = entry.first;
-                Model::Brush brush = brushNode->brush();
                 const std::vector<vm::vec3>& oldPositions = entry.second;
-                const std::vector<vm::vec3> newPositions = brush.moveVertices(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock));
-                kdl::vec_append(newVertexPositions, newPositions);
-                brushNode->setBrush(std::move(brush));
+                
+                brushNode->brush().moveVertices(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock))
+                    .visit(kdl::overload{
+                        [&](Model::Brush&& brush) {
+                            const auto newPositions = brush.findClosestVertexPositions(oldPositions + delta);
+                            kdl::vec_append(newVertexPositions, newPositions);
+                            brushNode->setBrush(std::move(brush));
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not move vertices: " << e;
+                        },
+                    });
             }
 
             invalidateSelectionBounds();
@@ -812,11 +798,20 @@ namespace TrenchBroom {
             std::vector<vm::segment3> newEdgePositions;
             for (const auto& entry : edges) {
                 Model::BrushNode* brushNode = entry.first;
-                Model::Brush brush = brushNode->brush();
                 const std::vector<vm::segment3>& oldPositions = entry.second;
-                const std::vector<vm::segment3> newPositions = brush.moveEdges(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock));
-                brushNode->setBrush(brush);
-                kdl::vec_append(newEdgePositions, newPositions);
+                brushNode->brush().moveEdges(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock))
+                    .visit(kdl::overload {
+                        [&](Model::Brush&& brush) {
+                            const auto newPositions = brush.findClosestEdgePositions(kdl::vec_transform(oldPositions, [&](const auto& s) {
+                                return s.translate(delta);
+                            }));
+                            kdl::vec_append(newEdgePositions, newPositions);
+                            brushNode->setBrush(std::move(brush));
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Couild not move edges: " << e;
+                        },
+                    });
             }
 
             invalidateSelectionBounds();
@@ -835,11 +830,21 @@ namespace TrenchBroom {
             std::vector<vm::polygon3> newFacePositions;
             for (const auto& entry : faces) {
                 Model::BrushNode* brushNode = entry.first;
-                Model::Brush brush = brushNode->brush();
                 const std::vector<vm::polygon3>& oldPositions = entry.second;
-                const std::vector<vm::polygon3> newPositions = brush.moveFaces(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock));
-                brushNode->setBrush(std::move(brush));
-                kdl::vec_append(newFacePositions, newPositions);
+                
+                brushNode->brush().moveFaces(m_worldBounds, oldPositions, delta, pref(Preferences::UVLock))
+                    .visit(kdl::overload {
+                        [&](Model::Brush&& brush) {
+                            const auto newPositions = brush.findClosestFacePositions(kdl::vec_transform(oldPositions, [&](const auto& f) {
+                                return f.translate(delta);
+                            }));
+                            kdl::vec_append(newFacePositions, newPositions);
+                            brushNode->setBrush(std::move(brush));
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not move faces: " << e;
+                        },
+                    });
             }
 
             invalidateSelectionBounds();
@@ -859,9 +864,15 @@ namespace TrenchBroom {
                 const vm::vec3& position = entry.first;
                 const std::vector<Model::BrushNode*>& brushNodes = entry.second;
                 for (Model::BrushNode* brushNode : brushNodes) {
-                    Model::Brush brush = brushNode->brush();
-                    brush.addVertex(m_worldBounds, position);
-                    brushNode->setBrush(std::move(brush));
+                    brushNode->brush().addVertex(m_worldBounds, position)
+                        .visit(kdl::overload{
+                            [&](Model::Brush&& brush) {
+                                brushNode->setBrush(std::move(brush));
+                            },
+                            [&](const Model::BrushError e) {
+                                error() << "Could not add vertex: " << e;
+                            },
+                        });
                 }
             }
 
@@ -879,15 +890,33 @@ namespace TrenchBroom {
                 Model::BrushNode* brushNode = entry.first;
                 const std::vector<vm::vec3>& positions = entry.second;
                 
-                Model::Brush brush = brushNode->brush();
-                brush.removeVertices(m_worldBounds, positions);
-                brushNode->setBrush(std::move(brush));
+                brushNode->brush().removeVertices(m_worldBounds, positions)
+                    .visit(kdl::overload {
+                        [&](Model::Brush&& brush) {
+                            brushNode->setBrush(std::move(brush));
+                        },
+                        [&](const Model::BrushError e) {
+                            error() << "Could not remove vertex: " << e;
+                        },
+                    });
             }
 
             invalidateSelectionBounds();
         }
 
         void MapDocumentCommandFacade::restoreSnapshot(Model::Snapshot* snapshot) {
+            const auto restoreNodesAndLogErrors = [&]() {
+                snapshot->restoreNodes(m_worldBounds).
+                    visit(kdl::overload {
+                        []() {},
+                        [&](const Model::SnapshotErrors& errors) {
+                            for (const auto& e : errors) {
+                                error() << kdl::str_to_string(e);
+                            }
+                        }
+                    });
+            };
+        
             if (!m_selectedNodes.empty()) {
                 const std::vector<Model::Node*>& nodes = m_selectedNodes.nodes();
                 const std::vector<Model::Node*> parents = collectParents(nodes);
@@ -895,7 +924,7 @@ namespace TrenchBroom {
                 Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
                 Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyNodes(nodesWillChangeNotifier, nodesDidChangeNotifier, nodes);
 
-                snapshot->restoreNodes(m_worldBounds);
+                restoreNodesAndLogErrors();
 
                 setTextures(m_selectedNodes.nodes());
                 invalidateSelectionBounds();
@@ -903,7 +932,7 @@ namespace TrenchBroom {
 
             const auto& faceHandles = selectedBrushFaces();
             if (!faceHandles.empty()) {
-                snapshot->restoreNodes(m_worldBounds);
+                restoreNodesAndLogErrors();
 
                 // Restoring the snapshots will invalidate all texture pointers on the BrushNode,
                 // since the snapshot has a whole brush granularity, so we need to call

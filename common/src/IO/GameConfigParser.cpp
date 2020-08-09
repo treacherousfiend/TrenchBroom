@@ -46,16 +46,14 @@ namespace TrenchBroom {
         ConfigParserBase(str, path),
         m_version(0) {}
 
-        namespace {
-            void checkVersion(const EL::Value& version) {
-                const std::vector<EL::IntegerType> validVsns({3, 4});
-                const bool isNumVersion = version.convertibleTo(EL::ValueType::Number);
-                const bool isValidVersion = isNumVersion && (std::find(validVsns.begin(), validVsns.end(), version.integerValue()) != validVsns.end());
-                if (!isValidVersion) {
-                    const std::string versionStr(version.convertTo(EL::ValueType::String).stringValue());
-                    const std::string validVsnsStr(kdl::str_join(validVsns, ", "));
-                    throw ParserException(version.line(), version.column(), " Unsupported game configuration version " + versionStr + "; valid versions are: " + validVsnsStr);
-                }
+        static void checkVersion(const EL::Value& version) {
+            const std::vector<EL::IntegerType> validVsns({3, 4});
+            const bool isNumVersion = version.convertibleTo(EL::ValueType::Number);
+            const bool isValidVersion = isNumVersion && (std::find(validVsns.begin(), validVsns.end(), version.integerValue()) != validVsns.end());
+            if (!isValidVersion) {
+                const std::string versionStr(version.convertTo(EL::ValueType::String).stringValue());
+                const std::string validVsnsStr(kdl::str_join(validVsns, ", "));
+                throw ParserException(version.line(), version.column(), " Unsupported game configuration version " + versionStr + "; valid versions are: " + validVsnsStr);
             }
         }
 
@@ -113,8 +111,8 @@ namespace TrenchBroom {
                     "{'initialmap': 'String'}"
                     "]");
 
-                const std::string& format = value[i]["format"].stringValue();
-                const std::string& initialMap = value[i]["initialmap"].stringValue();
+                const std::string format = value[i]["format"].stringValue();
+                const std::string initialMap = value[i]["initialmap"].stringValue();
 
                 result.emplace_back(format, IO::Path(initialMap));
             }
@@ -130,7 +128,7 @@ namespace TrenchBroom {
                             "]");
 
 
-            const std::string& searchPath = value["searchpath"].stringValue();
+            const std::string searchPath = value["searchpath"].stringValue();
             const Model::PackageFormatConfig packageFormatConfig = parsePackageFormatConfig(value["packageformat"]);
 
             return Model::FileSystemConfig(Path(searchPath), packageFormatConfig);
@@ -144,15 +142,15 @@ namespace TrenchBroom {
             if (value["extension"] != EL::Value::Null) {
                 const auto extensionValue = value["extension"];
                 expectType(extensionValue, EL::typeForName("String"));
-                const auto& extension = value["extension"].stringValue();
-                const auto& format = formatValue.stringValue();
+                const auto extension = value["extension"].stringValue();
+                const auto format = formatValue.stringValue();
 
                 return Model::PackageFormatConfig(extension, format);
             } else if (value["extensions"] != EL::Value::Null) {
                 const auto extensionsValue = value["extensions"];
                 expectType(extensionsValue, EL::typeForName("Array"));
                 const auto extensions = extensionsValue.asStringList();
-                const auto& format = formatValue.stringValue();
+                const auto format = formatValue.stringValue();
 
                 return Model::PackageFormatConfig(extensions, format);
             }
@@ -169,7 +167,7 @@ namespace TrenchBroom {
             const Model::TexturePackageConfig packageConfig = parseTexturePackageConfig(value["package"]);
             const Model::PackageFormatConfig formatConfig = parsePackageFormatConfig(value["format"]);
             const Path palette(value["palette"].stringValue());
-            const std::string& attribute = value["attribute"].stringValue();
+            const std::string attribute = value["attribute"].stringValue();
             const Path shaderSearchPath(value["shaderSearchPath"].stringValue());
             const std::vector<std::string> excludes = std::vector<std::string>(value["excludes"].asStringList());
 
@@ -183,7 +181,7 @@ namespace TrenchBroom {
                             "{'root': 'String', 'format': 'Map'}"
                             "]");
 
-            const std::string& typeStr = value["type"].stringValue();
+            const std::string typeStr = value["type"].stringValue();
             if (typeStr == "file") {
                 expectMapEntry(value, "format", EL::ValueType::Map);
                 const Model::PackageFormatConfig formatConfig = parsePackageFormatConfig(value["format"]);
@@ -269,8 +267,8 @@ namespace TrenchBroom {
                 }
             }
             if (!unused) {
-                const std::string& name = value["name"].stringValue();
-                const std::string& description = value["description"].stringValue();
+                const std::string name = value["name"].stringValue();
+                const std::string description = value["description"].stringValue();
                 flags.push_back(Model::FlagConfig(name, description, 1 << index));
             }
         }
@@ -344,13 +342,11 @@ namespace TrenchBroom {
             return result;
         }
 
-        namespace {
-            void checkTagName(const EL::Value& nameValue, const std::vector<Model::SmartTag>& tags) {
-                const auto& name = nameValue.stringValue();
-                for (const auto& tag : tags) {
-                    if (tag.name() == name) {
-                        throw ParserException(nameValue.line(), nameValue.column(), "Duplicate tag '" + name + "'");
-                    }
+        static void checkTagName(const EL::Value& nameValue, const std::vector<Model::SmartTag>& tags) {
+            const auto& name = nameValue.stringValue();
+            for (const auto& tag : tags) {
+                if (tag.name() == name) {
+                    throw ParserException(nameValue.line(), nameValue.column(), "Duplicate tag '" + name + "'");
                 }
             }
         }
@@ -361,7 +357,7 @@ namespace TrenchBroom {
             }
 
             for (size_t i = 0; i < value.length(); ++i) {
-                const auto& entry = value[i];
+                const auto entry = value[i];
 
                 expectStructure(entry, "[ {'name': 'String', 'match': 'String'}, {'attribs': 'Array', 'pattern': 'String', 'texture': 'String' } ]");
                 checkTagName(entry["name"], result);

@@ -21,6 +21,7 @@
 
 #include "GTestCompat.h"
 
+#include "Exceptions.h"
 #include "IO/NodeWriter.h"
 #include "Model/BrushNode.h"
 #include "Model/BrushBuilder.h"
@@ -37,6 +38,7 @@
 #include "Model/PickResult.h"
 #include "Model/WorldNode.h"
 
+#include <kdl/result.h>
 #include <kdl/vector_utils.h>
 
 #include <vecmath/bbox.h>
@@ -486,12 +488,12 @@ namespace TrenchBroom {
             map.addOrUpdateAttribute("classname", "worldspawn");
 
             BrushBuilder builder(&map, worldBounds);
-            BrushNode* brush1 = map.createBrush(builder.createCube(64.0, "none"));
-            BrushNode* brush2 = map.createBrush(builder.createCube(64.0, "none"));
-            BrushNode* brush3 = map.createBrush(builder.createCube(64.0, "none"));
+            BrushNode* brush1 = map.createBrush(builder.createCube(64.0, "none").value());
+            BrushNode* brush2 = map.createBrush(builder.createCube(64.0, "none").value());
+            BrushNode* brush3 = map.createBrush(builder.createCube(64.0, "none").value());
 
-            brush2->transform(vm::translation_matrix(vm::vec3(10.0, 0.0, 0.0)), false, worldBounds);
-            brush3->transform(vm::translation_matrix(vm::vec3(100.0, 0.0, 0.0)), false, worldBounds);
+            REQUIRE(brush2->transform(worldBounds, vm::translation_matrix(vm::vec3(10.0, 0.0, 0.0)), false));
+            REQUIRE(brush3->transform(worldBounds, vm::translation_matrix(vm::vec3(100.0, 0.0, 0.0)), false));
 
             map.defaultLayer()->addChild(brush1);
             map.defaultLayer()->addChild(brush2);
