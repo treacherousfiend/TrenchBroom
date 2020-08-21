@@ -145,7 +145,7 @@ namespace TrenchBroom {
             kdl::vec_clear_and_delete(m_toRemove);
         }
 
-        Texture* TextureManager::texture(const std::string& name) const {
+        const Texture* TextureManager::texture(const std::string& name) const {
             auto it = m_texturesByName.find(kdl::str_to_lower(name));
             if (it == std::end(m_texturesByName)) {
                 return nullptr;
@@ -154,7 +154,11 @@ namespace TrenchBroom {
             }
         }
 
-        const std::vector<Texture*>& TextureManager::textures() const {
+        Texture* TextureManager::texture(const std::string& name) {
+            return const_cast<Texture*>(const_cast<const TextureManager*>(this)->texture(name));
+        }
+
+        const std::vector<const Texture*>& TextureManager::textures() const {
             return m_textures;
         }
 
@@ -189,21 +193,21 @@ namespace TrenchBroom {
             m_textures.clear();
 
             for (auto* collection : m_collections) {
-                for (auto* texture : collection->textures()) {
-                    const auto key = kdl::str_to_lower(texture->name());
-                    texture->setOverridden(false);
+                for (auto& texture : collection->textures()) {
+                    const auto key = kdl::str_to_lower(texture.name());
+                    texture.setOverridden(false);
 
                     auto mIt = m_texturesByName.find(key);
                     if (mIt != std::end(m_texturesByName)) {
                         mIt->second->setOverridden(true);
-                        mIt->second = texture;
+                        mIt->second = &texture;
                     } else {
-                        m_texturesByName.insert(std::make_pair(key, texture));
+                        m_texturesByName.insert(std::make_pair(key, &texture));
                     }
                 }
             }
 
-            m_textures = kdl::map_values(m_texturesByName);
+            m_textures = kdl::vec_transform(kdl::map_values(m_texturesByName), [](auto* t) { return const_cast<const Texture*>(t); });
         }
     }
 }

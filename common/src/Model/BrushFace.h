@@ -128,8 +128,9 @@ namespace TrenchBroom {
             bool setAttributes(const BrushFace& other);
 
             void resetTexCoordSystemCache();
+            const TexCoordSystem& texCoordSystem() const;
 
-            Assets::Texture* texture() const;
+            const Assets::Texture* texture() const;
             vm::vec2f textureSize() const;
             vm::vec2f modOffset(const vm::vec2f& offset) const;
 
@@ -138,6 +139,9 @@ namespace TrenchBroom {
             vm::vec3 textureXAxis() const;
             vm::vec3 textureYAxis() const;
             void resetTextureAxes();
+
+            void convertToParaxial();
+            void convertToParallel();
 
             void moveTexture(const vm::vec3& up, const vm::vec3& right, const vm::vec2f& offset);
             void rotateTexture(float angle);

@@ -112,11 +112,11 @@ namespace TrenchBroom {
             update();
         }
 
-        Assets::Texture* TextureBrowserView::selectedTexture() const {
+        const Assets::Texture* TextureBrowserView::selectedTexture() const {
             return m_selectedTexture;
         }
 
-        void TextureBrowserView::setSelectedTexture(Assets::Texture* selectedTexture) {
+        void TextureBrowserView::setSelectedTexture(const Assets::Texture* selectedTexture) {
             if (m_selectedTexture == selectedTexture) {
                 return;
             }
@@ -124,7 +124,7 @@ namespace TrenchBroom {
             update();
         }
 
-        void TextureBrowserView::revealTexture(Assets::Texture* texture) {
+        void TextureBrowserView::revealTexture(const Assets::Texture* texture) {
             scrollToCell([=](const Cell& cell) {
                 const Assets::Texture* cellTexture = cellData(cell).texture;
                 return cellTexture == texture;
@@ -158,16 +158,16 @@ namespace TrenchBroom {
             if (m_group) {
                 for (const Assets::TextureCollection* collection : getCollections()) {
                     layout.addGroup(collection->name(), static_cast<float>(fontSize) + 2.0f);
-                    for (Assets::Texture* texture : getTextures(collection))
+                    for (const Assets::Texture* texture : getTextures(collection))
                         addTextureToLayout(layout, texture, font);
                 }
             } else {
-                for (Assets::Texture* texture : getTextures())
+                for (const Assets::Texture* texture : getTextures())
                     addTextureToLayout(layout, texture, font);
             }
         }
 
-        void TextureBrowserView::addTextureToLayout(Layout& layout, Assets::Texture* texture, const Renderer::FontDescriptor& font) {
+        void TextureBrowserView::addTextureToLayout(Layout& layout, const Assets::Texture* texture, const Renderer::FontDescriptor& font) {
             const float maxCellWidth = layout.maxCellWidth();
 
             const auto& groupName   = texture->collection()->name();
@@ -255,29 +255,29 @@ namespace TrenchBroom {
             return collections;
         }
 
-        std::vector<Assets::Texture*> TextureBrowserView::getTextures(const Assets::TextureCollection* collection) const {
-            std::vector<Assets::Texture*> textures = collection->textures();
+        std::vector<const Assets::Texture*> TextureBrowserView::getTextures(const Assets::TextureCollection* collection) const {
+            auto textures = kdl::vec_transform(collection->textures(), [](const auto& t) { return &t; });
             filterTextures(textures);
             sortTextures(textures);
             return textures;
         }
 
-        std::vector<Assets::Texture*> TextureBrowserView::getTextures() const {
+        std::vector<const Assets::Texture*> TextureBrowserView::getTextures() const {
             auto doc = kdl::mem_lock(m_document);
-            std::vector<Assets::Texture*> textures = doc->textureManager().textures();
+            auto textures = doc->textureManager().textures();
             filterTextures(textures);
             sortTextures(textures);
             return textures;
         }
 
-        void TextureBrowserView::filterTextures(std::vector<Assets::Texture*>& textures) const {
+        void TextureBrowserView::filterTextures(std::vector<const Assets::Texture*>& textures) const {
             if (m_hideUnused)
                 kdl::vec_erase_if(textures, MatchUsageCount());
             if (!m_filterText.empty())
                 kdl::vec_erase_if(textures, MatchName(m_filterText));
         }
 
-        void TextureBrowserView::sortTextures(std::vector<Assets::Texture*>& textures) const {
+        void TextureBrowserView::sortTextures(std::vector<const Assets::Texture*>& textures) const {
             switch (m_sortOrder) {
                 case TextureSortOrder::Name:
                     kdl::vec_sort(textures, CompareByName());

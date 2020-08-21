@@ -1,5 +1,5 @@
 /*
- Copyright 2020 Kristian Duske
+ Copyright 2010-2019 Kristian Duske
 
  Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
  documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
@@ -14,30 +14,24 @@
  COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+#ifndef KDL_SET_TEMP_H
+#define KDL_SET_TEMP_H
 
-#ifndef result_h
-#define result_h
-
-#include "kdl/overload.h"
-#include "kdl/result.h"
-
-#include <iostream>
+#include <optional>
+#include <sstream>
+#include <string>
 
 namespace kdl {
-    template <typename Value, typename... Errors>
-    std::ostream& operator<<(std::ostream& str, const result<Value, Errors...>& result) {
-        result.visit([&](const auto& x) { str << x; });
-        return str;
-    }
-
-    template <typename... Errors>
-    std::ostream& operator<<(std::ostream& str, const result<void, Errors...>& result) {
-        result.visit(kdl::overload {
-            []()               { str << "void"; },
-            [&](const auto& e) { str << e; }
-        });
-        return str;
+    template <typename T>
+    std::string opt_to_string(const std::optional<T>& opt) {
+        std::stringstream str;
+        if (opt.has_value()) {
+            str << *opt;
+        } else {
+            str << "nullopt";
+        }
+        return str.str();
     }
 }
 
-#endif /* result_h */
+#endif //KDL_SET_TEMP_H

@@ -821,7 +821,22 @@ namespace TrenchBroom {
             return exportDocument(Model::ExportFormat::WavefrontObj, IO::pathFromQString(newFileName));
         }
 
+        bool MapFrame::exportDocumentAsMap() {
+            const IO::Path& originalPath = m_document->path();
+
+            const QString newFileName = QFileDialog::getSaveFileName(this, tr("Export Map file"), IO::pathAsQString(originalPath), "Map files (*.map)");
+            if (newFileName.isEmpty()) {
+                return false;
+            }
+
+            return exportDocument(Model::ExportFormat::Map, IO::pathFromQString(newFileName));
+        }
+
         bool MapFrame::exportDocument(const Model::ExportFormat format, const IO::Path& path) {
+            if (path == m_document->path()) {
+                QMessageBox::critical(this, "", tr("You can't overwrite the current document.\nPlease choose a different file name to export to."));
+                return false;
+            }
             try {
                 m_document->exportDocumentAs(format, path);
                 logger().info() << "Exported " << path;
@@ -1588,27 +1603,25 @@ namespace TrenchBroom {
             gameFactory.saveConfigs(gameName);
         }
 
-        static std::optional<Assets::Texture*> textureToReveal(std::shared_ptr<MapDocument> document) {
-            kdl::vector_set<Assets::Texture*> selectedTextures;
+        static const Assets::Texture* textureToReveal(std::shared_ptr<MapDocument> document) {
+            kdl::vector_set<const Assets::Texture*> selectedTextures;
             for (const Model::BrushFaceHandle& face : document->allSelectedBrushFaces()) {
                 selectedTextures.insert(face.face().texture());
             }
             if (selectedTextures.size() == 1) {
-                return { *selectedTextures.begin() };
+                return *selectedTextures.begin();
             }
-            return std::nullopt;
+            return nullptr;
         }
 
         bool MapFrame::canRevealTexture() const {
-            return textureToReveal(m_document).has_value();
+            return textureToReveal(m_document) != nullptr;
         }
 
         void MapFrame::revealTexture() {
-            auto texture = textureToReveal(m_document);
-
-            if (texture) {
+            if (const auto texture = textureToReveal(m_document)) {
                 m_inspector->switchToPage(InspectorPage::Face);
-                m_inspector->faceInspector()->revealTexture(texture.value());
+                m_inspector->faceInspector()->revealTexture(texture);
             }
         }
 

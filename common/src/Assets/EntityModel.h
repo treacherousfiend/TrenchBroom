@@ -223,7 +223,7 @@ namespace TrenchBroom {
              *
              *@param skin the skin to add
              */
-            void addSkin(Texture* skin);
+            void addSkin(Texture skin);
 
             /**
              * Returns the number of frame meshes in this surface, should match the model's frame count.
@@ -245,7 +245,7 @@ namespace TrenchBroom {
              * @param name the name of the skin to find
              * @return the skin with the given name, or null if no such skin was found
              */
-            Texture* skin(const std::string& name) const;
+            const Texture* skin(const std::string& name) const;
 
             /**
              * Returns the skin with the given index.
@@ -253,7 +253,7 @@ namespace TrenchBroom {
              * @param index the index of the skin to find
              * @return the skin with the given index, or null if the index is out of bounds
              */
-            Texture* skin(size_t index) const;
+            const Texture* skin(size_t index) const;
 
             std::unique_ptr<Renderer::TexturedIndexRangeRenderer> buildRenderer(size_t skinIndex, size_t frameIndex);
         };
