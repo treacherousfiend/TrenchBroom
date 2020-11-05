@@ -45,6 +45,10 @@ class QToolBar;
 namespace TrenchBroom {
     class Logger;
 
+    namespace Assets {
+        class Texture;
+    }
+
     namespace IO {
         class Path;
     }
@@ -164,11 +168,13 @@ namespace TrenchBroom {
             bool openDocument(std::shared_ptr<Model::Game> game, Model::MapFormat mapFormat, const IO::Path& path);
             bool saveDocument();
             bool saveDocumentAs();
+            bool revertDocument();
             bool exportDocumentAsObj();
             bool exportDocumentAsMap();
             bool exportDocument(Model::ExportFormat format, const IO::Path& path);
         private:
             bool confirmOrDiscardChanges();
+            bool confirmRevertDocument();
         public:
             void loadPointFile();
             void reloadPointFile();
@@ -340,12 +346,13 @@ namespace TrenchBroom {
             bool currentViewMaximized();
 
             void showCompileDialog();
-            void compilationDialogWillClose();
 
             void showLaunchEngineDialog();
 
             bool canRevealTexture() const;
             void revealTexture();
+
+            void revealTexture(const Assets::Texture* texture);
 
             void debugPrintVertices();
             void debugCreateBrush();

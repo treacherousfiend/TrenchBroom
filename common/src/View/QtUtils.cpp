@@ -435,6 +435,15 @@ namespace TrenchBroom {
             button->setChecked(checked);
         }
 
+        void checkButtonInGroup(QButtonGroup* group, const QString& objectName, bool checked) {
+            for (QAbstractButton* button : group->buttons()) {
+                if (button->objectName() == objectName) {
+                    button->setChecked(checked);
+                    return;
+                }
+            }
+        }
+
         void insertTitleBarSeparator(QVBoxLayout* layout) {
 #ifdef _WIN32
             layout->insertWidget(0, new BorderLine(), 1);
@@ -483,7 +492,7 @@ namespace TrenchBroom {
             case MapTextEncoding::Quake:
                 // Quake uses the full 1-255 range for its bitmap font.
                 // So using a "just assume UTF-8" approach would not work here.
-                // See: https://github.com/kduske/TrenchBroom/issues/3122
+                // See: https://github.com/TrenchBroom/TrenchBroom/issues/3122
                 return QTextCodec::codecForLocale();
             case MapTextEncoding::Iso88591:
                 return QTextCodec::codecForName("ISO 8859-1");

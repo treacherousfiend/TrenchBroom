@@ -17,12 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <stdio.h>
-
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Logger.h"
 #include "Assets/EntityModel.h"
 #include "IO/DiskFileSystem.h"
@@ -37,7 +31,11 @@
 #include <vecmath/bbox.h>
 #include <vecmath/vec.h>
 
+#include <cstdio>
 #include <memory>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace IO {
@@ -84,7 +82,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE("Md3ParserTest.loadFailure_2659", "[Md3ParserTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2659
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2659
 
             NullLogger logger;
             const auto shaderSearchPath = Path("scripts");

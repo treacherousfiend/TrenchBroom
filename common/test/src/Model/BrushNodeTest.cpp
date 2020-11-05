@@ -17,12 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
-#include "TestUtils.h"
-
 #include "Exceptions.h"
 #include "Assets/Texture.h"
 #include "IO/NodeReader.h"
@@ -51,11 +45,15 @@
 #include <string>
 #include <vector>
 
+#include "Catch2.h"
+#include "GTestCompat.h"
+#include "TestUtils.h"
+
 namespace TrenchBroom {
     namespace Model {
         TEST_CASE("BrushNodeTest.buildBrushFail", "[BrushNodeTest]") {
             /*
-             See https://github.com/kduske/TrenchBroom/issues/1186
+             See https://github.com/TrenchBroom/TrenchBroom/issues/1186
              This crash was caused by the correction of newly created vertices in Polyhedron::Edge::split - it would nudge vertices such that their plane status changed, resulting in problems when building the seam.
              */
 
@@ -71,15 +69,14 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            const std::vector<Node*> nodes = reader.read(worldBounds, status);
+            const std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_EQ(1u, nodes.size());
         }
 
         TEST_CASE("BrushNodeTest.buildBrushFail2", "[BrushNodeTest]") {
             /*
-             See https://github.com/kduske/TrenchBroom/issues/1185
+             See https://github.com/TrenchBroom/TrenchBroom/issues/1185
 
              The cause for the endless loop was, like above, the vertex correction in Polyhedron::Edge::split.
              */
@@ -96,14 +93,13 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            const std::vector<Node*> nodes = reader.read(worldBounds, status);
+            const std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_EQ(1u, nodes.size());
         }
 
         TEST_CASE("BrushNodeTest.buildBrushFail3", "[BrushNodeTest]") {
-            // From https://github.com/kduske/TrenchBroom/issues/1697
+            // From https://github.com/TrenchBroom/TrenchBroom/issues/1697
 
             /*
              This brush is broken beyond repair. When building the polyhedron, we run into problems where no seam can be
@@ -111,7 +107,7 @@ namespace TrenchBroom {
              */
 
             /*
-             Update after fixing issue https://github.com/kduske/TrenchBroom/issues/2611
+             Update after fixing issue https://github.com/TrenchBroom/TrenchBroom/issues/2611
              With the revised face sort order (sort by normal), this brush can now be built.
              */
 
@@ -203,15 +199,14 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Valve);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            const std::vector<Node*> nodes = reader.read(worldBounds, status);
+            const std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_EQ(1u, nodes.size());
         }
 
         TEST_CASE("BrushNodeTest.buildBrushWithShortEdges", "[BrushNodeTest]") {
             /*
-             See https://github.com/kduske/TrenchBroom/issues/1194
+             See https://github.com/TrenchBroom/TrenchBroom/issues/1194
              */
 
             const std::string data("{\n"
@@ -226,9 +221,8 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            const std::vector<Node*> nodes = reader.read(worldBounds, status);
+            const std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_TRUE(nodes.empty());
         }
 
@@ -438,7 +432,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE("BrushNodeTest.testAlmostDegenerateBrush", "[BrushNodeTest]") {
-            // https://github.com/kduske/TrenchBroom/issues/1194
+            // https://github.com/TrenchBroom/TrenchBroom/issues/1194
             const std::string data("{\n"
                               "( -1248 -2144 1168 ) ( -1120 -2144 1168 ) ( -1248 -2272 1168 ) rock_1732 1248 2144 0 1 -1 //TX2\n"
                               "( -1248 -2224 1141.33333 ) ( -1248 -2224 1013.33333 ) ( -1120 -2224 1056 ) rock_1732 1391 -309 -33.69007 1.20185 -0.83205 //TX1\n"
@@ -453,14 +447,13 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            const std::vector<Node*> nodes = reader.read(worldBounds, status);
+            const std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_EQ(0u, nodes.size());
         }
 
         TEST_CASE("BrushNodeTest.invalidBrush1332", "[BrushNodeTest]") {
-            // https://github.com/kduske/TrenchBroom/issues/1332
+            // https://github.com/TrenchBroom/TrenchBroom/issues/1332
             const std::string data("{\n"
                               "( 91.428573608  0  4.57144165 ) ( 96 16  0 ) ( 82.285690308  0  0          ) rock5_2 0 0 0 1 1\n"
                               "( 95.238098145  0 16          ) ( 96  2 16 ) ( 91.428573608  0  4.57144165 ) rock5_2 0 0 0 1 1\n"
@@ -485,9 +478,8 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status); // assertion failure
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status); // assertion failure
             kdl::vec_clear_and_delete(nodes);
         }
 
@@ -536,14 +528,13 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status); // assertion failure
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status); // assertion failure
             kdl::vec_clear_and_delete(nodes);
         }
 
         TEST_CASE("BrushNodeTest.invalidBrush1801", "[BrushNodeTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/1801
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/1801
             // see PolyhedronTest::clipWithInvalidSeam
 
             const std::string data("{\n"
@@ -563,9 +554,8 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status); // assertion failure
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status); // assertion failure
             kdl::vec_clear_and_delete(nodes);
         }
 
@@ -612,7 +602,7 @@ namespace TrenchBroom {
             delete cube;
         }
 
-        // https://github.com/kduske/TrenchBroom/issues/1893
+        // https://github.com/TrenchBroom/TrenchBroom/issues/1893
         TEST_CASE("BrushNodeTest.intersectsIssue1893", "[BrushNodeTest]") {
             const std::string data("{\n"
                               "\"classname\" \"worldspawn\"\n"
@@ -658,9 +648,8 @@ namespace TrenchBroom {
             WorldNode world(Model::MapFormat::Valve);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             ASSERT_EQ(1u, nodes.size());
             ASSERT_TRUE(nodes.at(0)->hasChildren());
             ASSERT_EQ(2u, nodes.at(0)->children().size());
@@ -673,7 +662,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE("BrushNodeTest.loadBrushFail_2361", "[BrushNodeTest]") {
-            // see https://github.com/kduske/TrenchBroom/pull/2372#issuecomment-432893836
+            // see https://github.com/TrenchBroom/TrenchBroom/pull/2372#issuecomment-432893836
 
             const vm::bbox3 worldBounds(8192.0);
             WorldNode world(MapFormat::Standard);
@@ -757,13 +746,12 @@ namespace TrenchBroom {
 )";
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            ASSERT_NO_THROW(reader.read(worldBounds, status));
+            ASSERT_NO_THROW(IO::NodeReader::read(data, world, worldBounds, status));
         }
 
         TEST_CASE("BrushNodeTest.loadBrushFail_2491", "[BrushNodeTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2491
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2491
 
             const vm::bbox3 worldBounds(8192.0);
             WorldNode world(MapFormat::Standard);
@@ -780,13 +768,12 @@ namespace TrenchBroom {
             )";
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            ASSERT_NO_THROW(reader.read(worldBounds, status));
+            ASSERT_NO_THROW(IO::NodeReader::read(data, world, worldBounds, status));
         }
 
         TEST_CASE("BrushNodeTest.loadBrushFail_2686", "[BrushNodeTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2686
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2686
 
             const vm::bbox3 worldBounds(8192.0);
             WorldNode world(Model::MapFormat::Valve);
@@ -821,9 +808,8 @@ namespace TrenchBroom {
             )";
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            ASSERT_NO_THROW(reader.read(worldBounds, status));
+            ASSERT_NO_THROW(IO::NodeReader::read(data, world, worldBounds, status));
         }
     }
 }

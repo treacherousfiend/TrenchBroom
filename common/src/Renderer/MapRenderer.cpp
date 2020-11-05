@@ -30,7 +30,6 @@
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
 #include "Model/Node.h"
-#include "Model/NodeVisitor.h"
 #include "Model/WorldNode.h"
 #include "Renderer/BrushRenderer.h"
 #include "Renderer/EntityLinkRenderer.h"
@@ -43,6 +42,7 @@
 #include "View/MapDocument.h"
 
 #include <kdl/memory_utils.h>
+#include <kdl/overload.h>
 #include <kdl/vector_set.h>
 
 #include <set>
@@ -306,7 +306,6 @@ namespace TrenchBroom {
             document->entityDefinitionsDidChangeNotifier.addObserver(this, &MapRenderer::entityDefinitionsDidChange);
             document->modsDidChangeNotifier.addObserver(this, &MapRenderer::modsDidChange);
             document->editorContextDidChangeNotifier.addObserver(this, &MapRenderer::editorContextDidChange);
-            document->mapViewConfigDidChangeNotifier.addObserver(this, &MapRenderer::mapViewConfigDidChange);
 
             PreferenceManager& prefs = PreferenceManager::instance();
             prefs.preferenceDidChangeNotifier.addObserver(this, &MapRenderer::preferenceDidChange);
@@ -331,7 +330,6 @@ namespace TrenchBroom {
                 document->entityDefinitionsDidChangeNotifier.removeObserver(this, &MapRenderer::entityDefinitionsDidChange);
                 document->modsDidChangeNotifier.removeObserver(this, &MapRenderer::modsDidChange);
                 document->editorContextDidChangeNotifier.removeObserver(this, &MapRenderer::editorContextDidChange);
-                document->mapViewConfigDidChangeNotifier.removeObserver(this, &MapRenderer::mapViewConfigDidChange);
             }
 
             PreferenceManager& prefs = PreferenceManager::instance();
@@ -462,6 +460,11 @@ namespace TrenchBroom {
             if (document->isGamePathPreference(path)) {
                 reloadEntityModels();
                 invalidateRenderers();
+                invalidateEntityLinkRenderer();
+            }
+
+            if (path.hasPrefix(IO::Path("Map view"), true)) {
+                invalidateRenderers(Renderer_All);
                 invalidateEntityLinkRenderer();
             }
         }

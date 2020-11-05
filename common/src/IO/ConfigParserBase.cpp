@@ -28,12 +28,8 @@
 
 namespace TrenchBroom {
     namespace IO {
-        ConfigParserBase::ConfigParserBase(const char* begin, const char* end, const Path& path) :
-        m_parser(ELParser::Mode::Strict, begin, end),
-        m_path(path) {}
-
-        ConfigParserBase::ConfigParserBase(const std::string& str, const Path& path) :
-        m_parser(ELParser::Mode::Strict, str),
+        ConfigParserBase::ConfigParserBase(std::string_view str, const Path& path) :
+        m_parser(ELParser::Mode::Strict, std::move(str)),
         m_path(path) {}
 
         ConfigParserBase::~ConfigParserBase() {}
@@ -64,13 +60,6 @@ namespace TrenchBroom {
                 const auto typeName = mandatory[key].stringValue();
                 const auto type = EL::typeForName(typeName);
                 expectMapEntry(value, key, type);
-            }
-
-            // Are there any unexpected keys present?
-            for (const auto& key : value.keys()) {
-                if (!mandatory.contains(key) && !optional.contains(key)) {
-                    throw ParserException(value.line(), value.column(), "Unexpected map entry '" + key + "'");
-                }
             }
         }
 

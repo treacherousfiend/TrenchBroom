@@ -131,7 +131,6 @@ namespace TrenchBroom {
             void modsDidChange();
 
             void editorContextDidChange();
-            void mapViewConfigDidChange();
 
             void preferenceDidChange(const IO::Path& path);
         private: // invalidating specific nodes

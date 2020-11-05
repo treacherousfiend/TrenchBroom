@@ -29,26 +29,20 @@
 namespace TrenchBroom {
     namespace Assets {
         TextureCollection::TextureCollection() :
-        m_loaded(false),
-        m_usageCount(0) {}
+        m_loaded(false) {}
 
         TextureCollection::TextureCollection(std::vector<Texture> textures) :
         m_loaded(false),
-        m_usageCount(0) {
-            addTextures(std::move(textures));
-        }
+        m_textures(std::move(textures)) {}
 
         TextureCollection::TextureCollection(const IO::Path& path) :
         m_loaded(false),
-        m_path(path),
-        m_usageCount(0) {}
+        m_path(path) {}
 
         TextureCollection::TextureCollection(const IO::Path& path, std::vector<Texture> textures) :
         m_loaded(true),
         m_path(path),
-        m_usageCount(0) {
-            addTextures(std::move(textures));
-        }
+        m_textures(std::move(textures)) {}
 
         TextureCollection::~TextureCollection() {
             if (!m_textureIds.empty()) {
@@ -56,17 +50,6 @@ namespace TrenchBroom {
                                           static_cast<GLuint*>(&m_textureIds.front())));
                 m_textureIds.clear();
             }
-        }
-
-        void TextureCollection::addTextures(std::vector<Texture> textures) {
-            for (auto& texture : textures)
-                addTexture(std::move(texture));
-        }
-
-        void TextureCollection::addTexture(Texture texture) {
-            texture.setCollection(this);
-            m_textures.push_back(std::move(texture));
-            m_loaded = true;
         }
 
         bool TextureCollection::loaded() const {
@@ -120,10 +103,6 @@ namespace TrenchBroom {
             return const_cast<Texture*>(const_cast<const TextureCollection*>(this)->textureByName(name));
         }
 
-        size_t TextureCollection::usageCount() const {
-            return m_usageCount;
-        }
-
         bool TextureCollection::prepared() const {
             return !m_textureIds.empty();
         }
@@ -132,12 +111,14 @@ namespace TrenchBroom {
             assert(!prepared());
 
             m_textureIds.resize(textureCount());
-            glAssert(glGenTextures(static_cast<GLsizei>(textureCount()),
-                                   static_cast<GLuint*>(&m_textureIds.front())));
+            if (textureCount() != 0u) {
+                glAssert(glGenTextures(static_cast<GLsizei>(textureCount()),
+                                       static_cast<GLuint*>(&m_textureIds.front())));
 
-            for (size_t i = 0; i < textureCount(); ++i) {
-                Texture& texture = m_textures[i];
-                texture.prepare(m_textureIds[i], minFilter, magFilter);
+                for (size_t i = 0; i < textureCount(); ++i) {
+                    Texture& texture = m_textures[i];
+                    texture.prepare(m_textureIds[i], minFilter, magFilter);
+                }
             }
         }
 
@@ -145,17 +126,6 @@ namespace TrenchBroom {
             for (auto& texture : m_textures) {
                 texture.setMode(minFilter, magFilter);
             }
-        }
-
-        void TextureCollection::incUsageCount() {
-            ++m_usageCount;
-            usageCountDidChange();
-        }
-
-        void TextureCollection::decUsageCount() {
-            assert(m_usageCount > 0);
-            --m_usageCount;
-            usageCountDidChange();
         }
     }
 }

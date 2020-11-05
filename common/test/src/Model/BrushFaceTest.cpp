@@ -17,13 +17,8 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Exceptions.h"
 #include "FloatType.h"
-#include "TestUtils.h"
 #include "Assets/Texture.h"
 #include "IO/NodeReader.h"
 #include "IO/TestParserStatus.h"
@@ -32,6 +27,8 @@
 #include "Model/BrushBuilder.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushFaceAttributes.h"
+#include "Model/GroupNode.h"
+#include "Model/LayerNode.h"
 #include "Model/MapFormat.h"
 #include "Model/NodeSnapshot.h"
 #include "Model/ParaxialTexCoordSystem.h"
@@ -49,6 +46,10 @@
 
 #include <memory>
 #include <vector>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
+#include "TestUtils.h"
 
 namespace TrenchBroom {
     namespace Model {
@@ -522,7 +523,7 @@ namespace TrenchBroom {
             checkTextureLockOffWithScale(cube);
         }
 
-        // https://github.com/kduske/TrenchBroom/issues/2001
+        // https://github.com/TrenchBroom/TrenchBroom/issues/2001
         TEST_CASE("BrushFaceTest.testValveRotation", "[BrushFaceTest]") {
             const std::string data("{\n"
                                       "\"classname\" \"worldspawn\"\n"
@@ -540,9 +541,7 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Valve);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
-
-            std::vector<Node*> nodes = reader.read(worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
@@ -580,7 +579,7 @@ namespace TrenchBroom {
             kdl::vec_clear_and_delete(nodes);
         }
 
-        // https://github.com/kduske/TrenchBroom/issues/1995
+        // https://github.com/TrenchBroom/TrenchBroom/issues/1995
         TEST_CASE("BrushFaceTest.testCopyTexCoordSystem", "[BrushFaceTest]") {
             const std::string data("{\n"
                                       "    \"classname\" \"worldspawn\"\n"
@@ -598,9 +597,8 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Valve);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
@@ -639,7 +637,7 @@ namespace TrenchBroom {
             kdl::vec_clear_and_delete(nodes);
         }
 
-        // https://github.com/kduske/TrenchBroom/issues/2315
+        // https://github.com/TrenchBroom/TrenchBroom/issues/2315
         TEST_CASE("BrushFaceTest.move45DegreeFace", "[BrushFaceTest]") {
             const std::string data(R"(
 // entity 0
@@ -660,9 +658,8 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Valve);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             BrushNode* brushNode = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
             EXPECT_NE(nullptr, brushNode);
             
@@ -738,14 +735,63 @@ namespace TrenchBroom {
             WorldNode world(MapFormat::Standard);
 
             IO::TestParserStatus status;
-            IO::NodeReader reader(data, world);
 
-            std::vector<Node*> nodes = reader.read(worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
             auto* brushNode = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(brushNode != nullptr);
 
             Brush brush = brushNode->brush();
             CHECK(dynamic_cast<const ParaxialTexCoordSystem*>(&brush.face(0).texCoordSystem()) != nullptr);
+        }
+
+        TEST_CASE("BrushFaceTest.nodeReaderGroupConversion", "[BrushFaceTest]") {
+            // Data comes from copying a Group in 2020.2
+            const std::string data(R"(// entity 0
+{
+"classname" "func_group"
+"_tb_type" "_tb_group"
+"_tb_name" "Unnamed"
+"_tb_id" "3"
+// brush 0
+{
+( -64 -64 -16 ) ( -64 -63 -16 ) ( -64 -64 -15 ) __TB_empty [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 -64 -16 ) ( -64 -64 -15 ) ( -63 -64 -16 ) __TB_empty [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 -64 -16 ) ( -63 -64 -16 ) ( -64 -63 -16 ) __TB_empty [ -1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 64 64 16 ) ( 64 65 16 ) ( 65 64 16 ) __TB_empty [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 64 64 16 ) ( 65 64 16 ) ( 64 64 17 ) __TB_empty [ -1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 64 64 16 ) ( 64 64 17 ) ( 64 65 16 ) __TB_empty [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+}
+)");
+
+            const vm::bbox3 worldBounds(4096.0);
+            WorldNode world(MapFormat::Standard);
+
+            IO::TestParserStatus status;
+
+            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+
+            auto* groupNode = dynamic_cast<GroupNode*>(nodes.at(0));
+            REQUIRE(groupNode != nullptr);
+
+            auto* brushNode = dynamic_cast<BrushNode*>(groupNode->children().at(0));
+            REQUIRE(brushNode != nullptr);
+
+            const Brush brush = brushNode->brush();
+            CHECK(dynamic_cast<const ParaxialTexCoordSystem*>(&brush.face(0).texCoordSystem()) != nullptr);
+        }
+
+        TEST_CASE("BrushFaceTest.parseFaceAsNode", "[BrushFaceTest]") {
+            const std::string data(R"(
+( -64 -64 -16 ) ( -64 -63 -16 ) ( -64 -64 -15 ) __TB_empty [ 0 -1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+)");
+
+            const vm::bbox3 worldBounds(4096.0);
+            WorldNode world(MapFormat::Valve);
+
+            IO::TestParserStatus status;
+
+            CHECK(IO::NodeReader::read(data, world, worldBounds, status).empty());
         }
     }
 }

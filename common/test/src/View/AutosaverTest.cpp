@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Logger.h"
 #include "IO/Path.h"
 #include "IO/TestEnvironment.h"
@@ -31,6 +27,9 @@
 
 #include <chrono>
 #include <thread>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace View {
@@ -144,7 +143,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE_METHOD(MapDocumentTest, "MapDocumentTest.autosaverSavesWhenCrashFilesPresent") {
-            // https://github.com/kduske/TrenchBroom/issues/2544
+            // https://github.com/TrenchBroom/TrenchBroom/issues/2544
 
             using namespace std::literals::chrono_literals;
 

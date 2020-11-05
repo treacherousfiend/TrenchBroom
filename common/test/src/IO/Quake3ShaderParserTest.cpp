@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Assets/Quake3Shader.h"
 #include "IO/DiskFileSystem.h"
 #include "IO/DiskIO.h"
@@ -30,6 +26,9 @@
 #include "IO/TestParserStatus.h"
 
 #include <string>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace IO {
@@ -502,7 +501,7 @@ waterBubble
         }
 
         TEST_CASE("Quake3ShaderParserTest.parseShadersWithInvalidWhitespace", "[Quake3ShaderParserTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2537
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2537
             // The file contains a carriage return without a consecutive line feed, which tripped the parser.
 
             const auto workDir = Disk::getCurrentWorkingDir();
@@ -510,13 +509,13 @@ waterBubble
             auto testFile = fs.openFile(Path("am_cf_models.shader"));
             auto reader = testFile->reader().buffer();
 
-            Quake3ShaderParser parser(std::begin(reader), std::end(reader));
+            Quake3ShaderParser parser(reader.stringView());
             TestParserStatus status;
             ASSERT_NO_THROW(parser.parse(status));
         }
 
         TEST_CASE("Quake3ShaderParserTest.parseShaderAbsolutePath", "[Quake3ShaderParserTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2633
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2633
             // apparently, the Q3 engine can handle this
 
             const std::string data(R"(
@@ -543,7 +542,7 @@ waterBubble
         }
 
         TEST_CASE("Quake3ShaderParserTest.parseShaderWithMissingCBrace", "[Quake3ShaderParserTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/2663
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/2663
             // Quake 3 allows this, too.
 
             const std::string data(R"(

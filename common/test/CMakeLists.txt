@@ -18,6 +18,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/IO/FgdParserTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/FreeImageTextureReaderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/GameConfigParserTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/IO/GameEngineConfigParserTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/IdMipTextureReaderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/IdPakFileSystemTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/M8TextureReaderTest.cpp"
@@ -76,6 +77,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/View/RemoveNodesTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/ResizeBrushesToolTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/ReparentNodesTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/View/RepeatableActionsTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/ScaleObjectsToolTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/SelectionCommandTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/SelectionTest.cpp"
@@ -85,6 +87,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/View/TextOutputAdapterTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/AABBTreeStressTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/AABBTreeTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Catch2.h"
         "${COMMON_TEST_SOURCE_DIR}/EnsureTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/NotifierTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/PreferencesTest.cpp"
@@ -138,6 +141,10 @@ if(WIN32)
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt5::QWindowsIntegrationPlugin>" "$<TARGET_FILE_DIR:common-test>/platforms"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:Qt5::QWindowsVistaStylePlugin>" "$<TARGET_FILE_DIR:common-test>/styles")
 endif()
+
+# Copy some resource files required when initializing TrenchBroomApp
+add_custom_command(TARGET common-test POST_BUILD
+COMMAND ${CMAKE_COMMAND} -E copy_directory "${APP_RESOURCE_DIR}/graphics/images" "${TEST_RESOURCE_DEST_DIR}/images")
 
 # Clear all fixtures
 add_custom_command(TARGET common-test POST_BUILD

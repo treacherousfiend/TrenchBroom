@@ -20,7 +20,6 @@
 #ifndef TrenchBroom_TextureCollection
 #define TrenchBroom_TextureCollection
 
-#include "Notifier.h"
 #include "Assets/Texture.h"
 #include "IO/Path.h"
 #include "Renderer/GL.h"
@@ -38,22 +37,22 @@ namespace TrenchBroom {
             IO::Path m_path;
             std::vector<Texture> m_textures;
 
-            size_t m_usageCount;
-
             TextureIdList m_textureIds;
 
             friend class Texture;
-        public:
-            Notifier<> usageCountDidChange;
         public:
             TextureCollection();
             explicit TextureCollection(std::vector<Texture> textures);
             explicit TextureCollection(const IO::Path& path);
             TextureCollection(const IO::Path& path, std::vector<Texture> textures);
-            virtual ~TextureCollection();
 
-            void addTextures(std::vector<Texture> textures);
-            void addTexture(Texture texture);
+            TextureCollection(const TextureCollection&) = delete;
+            TextureCollection& operator=(const TextureCollection&) = delete;
+            
+            TextureCollection(TextureCollection&& other) = default;
+            TextureCollection& operator=(TextureCollection&& other) = default;
+
+            ~TextureCollection();
 
             bool loaded() const;
             const IO::Path& path() const;
@@ -69,14 +68,9 @@ namespace TrenchBroom {
             const Texture* textureByName(const std::string& name) const;
             Texture* textureByName(const std::string& name);
 
-            size_t usageCount() const;
-
             bool prepared() const;
             void prepare(int minFilter, int magFilter);
             void setTextureMode(int minFilter, int magFilter);
-        private:
-            void incUsageCount();
-            void decUsageCount();
         };
     }
 }

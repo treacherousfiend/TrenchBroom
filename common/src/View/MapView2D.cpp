@@ -26,8 +26,9 @@
 #include "Model/BrushBuilder.h"
 #include "Model/BrushError.h"
 #include "Model/BrushNode.h"
-#include "Model/CollectContainedNodesVisitor.h"
+#include "Model/EditorContext.h"
 #include "Model/HitAdapter.h"
+#include "Model/ModelUtils.h"
 #include "Model/PickResult.h"
 #include "Model/PointFile.h"
 #include "Renderer/Compass2D.h"
@@ -98,23 +99,27 @@ namespace TrenchBroom {
         }
 
         void MapView2D::initializeCamera(const ViewPlane viewPlane) {
+            auto document = kdl::mem_lock(m_document);
+            const auto worldBounds = vm::bbox3f(document->worldBounds());
+
             switch (viewPlane) {
                 case MapView2D::ViewPlane_XY:
                     m_camera->setDirection(vm::vec3f::neg_z(), vm::vec3f::pos_y());
-                    m_camera->moveTo(vm::vec3f(0.0f, 0.0f, 16384.0f));
+                    m_camera->moveTo(vm::vec3f(0.0f, 0.0f, worldBounds.max.z()));
                     break;
                 case MapView2D::ViewPlane_XZ:
                     m_camera->setDirection(vm::vec3f::pos_y(), vm::vec3f::pos_z());
-                    m_camera->moveTo(vm::vec3f(0.0f, -16384.0f, 0.0f));
+                    m_camera->moveTo(vm::vec3f(0.0f, worldBounds.min.y(), 0.0f));
                     break;
                 case MapView2D::ViewPlane_YZ:
                     m_camera->setDirection(vm::vec3f::neg_x(), vm::vec3f::pos_z());
-                    m_camera->moveTo(vm::vec3f(16384.0f, 0.0f, 0.0f));
+                    m_camera->moveTo(vm::vec3f(worldBounds.max.x(), 0.0f, 0.0f));
                     break;
             }
             m_camera->setNearPlane(1.0f);
-            m_camera->setFarPlane(32768.0f);
-
+            // NOTE: GridRenderer draws at the far side of the map bounds, so add some extra margin so it's
+            // not fighting the far plane.
+            m_camera->setFarPlane(worldBounds.size().x() + 16.0f);
         }
 
         void MapView2D::initializeToolChain(MapViewToolBox& toolBox) {
@@ -197,8 +202,8 @@ namespace TrenchBroom {
             const auto document = kdl::mem_lock(m_document);
             const vm::bbox3 tallBounds = document->worldBounds().expand(-1.0); // we can't make a brush that is exactly as large as worldBounds
 
-            const FloatType min = dot(tallBounds.min, vm::vec3(m_camera->direction()));
-            const FloatType max = dot(tallBounds.max, vm::vec3(m_camera->direction()));
+            const FloatType min = vm::dot(tallBounds.min, vm::vec3(m_camera->direction()));
+            const FloatType max = vm::dot(tallBounds.max, vm::vec3(m_camera->direction()));
 
             const vm::plane3 minPlane(min, vm::vec3(m_camera->direction()));
             const vm::plane3 maxPlane(max, vm::vec3(m_camera->direction()));
@@ -222,24 +227,24 @@ namespace TrenchBroom {
                 }
 
                 brushBuilder.createBrush(tallVertices, Model::BrushFaceAttributes::NoTextureName)
-                    .visit(kdl::overload {
+                    .visit(kdl::overload(
                         [&](Model::Brush&& b) {
                             tallBrushes.push_back(document->world()->createBrush(std::move(b)));
                         },
                         [&](const Model::BrushError e) {
                             m_logger->error() << "Could not create selection brush: " << e;
                         }
-                    });
+                    ));
             }
+
+            const auto nodesToSelect = kdl::vec_filter(
+                Model::collectContainedNodes(std::vector<Model::Node*>{document->world()}, tallBrushes), 
+                [&](const auto* node) { return document->editorContext().selectable(node); });
+            kdl::vec_clear_and_delete(tallBrushes);
 
             Transaction transaction(document, "Select Tall");
             document->deleteObjects();
-
-            Model::CollectContainedNodesVisitor<std::vector<Model::BrushNode*>::const_iterator> visitor(std::begin(tallBrushes), std::end(tallBrushes), document->editorContext());
-            document->world()->acceptAndRecurse(visitor);
-            document->select(visitor.nodes());
-
-            kdl::vec_clear_and_delete(tallBrushes);
+            document->select(nodesToSelect);
         }
 
         void MapView2D::doFocusCameraOnSelection(const bool animate) {

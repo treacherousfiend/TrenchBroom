@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "IO/DiskIO.h"
 #include "IO/File.h"
 #include "IO/TestParserStatus.h"
@@ -36,6 +32,9 @@
 #include <vecmath/vec.h>
 
 #include <string>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace IO {
@@ -1169,7 +1168,7 @@ common/caulk
         }
 
         TEST_CASE("WorldReaderTest.parseMultipleClassnames", "[WorldReaderTest]") {
-            // See https://github.com/kduske/TrenchBroom/issues/1485
+            // See https://github.com/TrenchBroom/TrenchBroom/issues/1485
 
             const std::string data(R"(
 {
@@ -1270,7 +1269,7 @@ common/caulk
             ASSERT_STREQ("test\\\\", world->attribute("message").c_str());
         }
 
-        // https://github.com/kduske/TrenchBroom/issues/1739
+        // https://github.com/TrenchBroom/TrenchBroom/issues/1739
         TEST_CASE("WorldReaderTest.parseAttributeNewlineEscapeSequence", "[WorldReaderTest]") {
             const std::string data(R"(
 {
@@ -1344,7 +1343,7 @@ common/caulk
             auto fileReader = file->reader().buffer();
 
             IO::TestParserStatus status;
-            IO::WorldReader worldReader(std::begin(fileReader), std::end(fileReader));
+            IO::WorldReader worldReader(fileReader.stringView());
 
             const auto worldBounds = vm::bbox3(8192.0);
             auto worldNode = worldReader.read(Model::MapFormat::Quake2, worldBounds, status);

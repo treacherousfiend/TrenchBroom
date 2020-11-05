@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Logger.h"
 #include "TestUtils.h"
 #include "Assets/Texture.h"
@@ -36,6 +32,9 @@
 
 #include <algorithm>
 #include <iterator>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace Model {
@@ -75,7 +74,7 @@ namespace TrenchBroom {
         }
         
         TEST_CASE("GameTest.loadCorruptPackages", "[GameTest]") {
-            // https://github.com/kduske/TrenchBroom/issues/2496
+            // https://github.com/TrenchBroom/TrenchBroom/issues/2496
 
             const auto games = std::vector<IO::Path> {
                 IO:: Path("Quake"),
@@ -154,20 +153,20 @@ namespace TrenchBroom {
              * skies/hub1/dusk -> test/editor_image.jpg
              */
 
-            const auto* testCollection = textureManager.collections().front();
-            ASSERT_EQ(5u, testCollection->textureCount());
+            const auto& testCollection = textureManager.collections().front();
+            ASSERT_EQ(5u, testCollection.textureCount());
 
-            const auto& testTextures = testCollection->textures();
+            const auto& testTextures = testCollection.textures();
             ASSERT_EQ(1, std::count_if(std::begin(testTextures), std::end(testTextures), [](const auto& t) { return t.name() == "test/test"; }));
             ASSERT_EQ(1, std::count_if(std::begin(testTextures), std::end(testTextures), [](const auto& t) { return t.name() == "test/not_existing"; }));
             ASSERT_EQ(1, std::count_if(std::begin(testTextures), std::end(testTextures), [](const auto& t) { return t.name() == "test/editor_image"; }));
             ASSERT_EQ(1, std::count_if(std::begin(testTextures), std::end(testTextures), [](const auto& t) { return t.name() == "test/not_existing2"; }));
             ASSERT_EQ(1, std::count_if(std::begin(testTextures), std::end(testTextures), [](const auto& t) { return t.name() == "test/test2"; }));
             
-            const auto* skiesCollection = textureManager.collections().back();
-            ASSERT_EQ(1u, skiesCollection->textureCount());
+            const auto& skiesCollection = textureManager.collections().back();
+            ASSERT_EQ(1u, skiesCollection.textureCount());
             
-            const auto& skiesTextures = testCollection->textures();
+            const auto& skiesTextures = testCollection.textures();
             ASSERT_TRUE(skiesTextures.front().name() == "test/editor_image");
         }
     }

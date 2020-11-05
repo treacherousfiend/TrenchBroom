@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Model/BrushNode.h"
 #include "Model/EntityNode.h"
 #include "Model/GroupNode.h"
@@ -30,6 +26,9 @@
 #include "View/PasteType.h"
 
 #include <set>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace View {
@@ -122,7 +121,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.pasteInGroup", "[GroupNodesTest]") {
-            // https://github.com/kduske/TrenchBroom/issues/1734
+            // https://github.com/TrenchBroom/TrenchBroom/issues/1734
 
             const std::string data("{"
                               "\"classname\" \"light\""

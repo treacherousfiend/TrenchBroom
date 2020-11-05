@@ -90,15 +90,15 @@ namespace TrenchBroom {
 
             void doInitLayout(Layout& layout) override;
             void doReloadLayout(Layout& layout) override;
-            void addTextureToLayout(Layout& layout, const Assets::Texture* texture, const Renderer::FontDescriptor& font);
+            void addTextureToLayout(Layout& layout, const Assets::Texture* texture, const std::string& groupName, const Renderer::FontDescriptor& font);
 
             struct CompareByUsageCount;
             struct CompareByName;
             struct MatchUsageCount;
             struct MatchName;
 
-            std::vector<Assets::TextureCollection*> getCollections() const;
-            std::vector<const Assets::Texture*> getTextures(const Assets::TextureCollection* collection) const;
+            const std::vector<Assets::TextureCollection>& getCollections() const;
+            std::vector<const Assets::Texture*> getTextures(const Assets::TextureCollection& collection) const;
             std::vector<const Assets::Texture*> getTextures() const;
 
             void filterTextures(std::vector<const Assets::Texture*>& textures) const;

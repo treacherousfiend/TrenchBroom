@@ -31,12 +31,12 @@
 #include "Model/EditorContext.h"
 #include "Model/EntityNode.h"
 #include "Model/ExportFormat.h"
-#include "Model/FindLayerVisitor.h"
 #include "Model/Game.h"
 #include "Model/GameFactory.h"
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
 #include "Model/MapFormat.h"
+#include "Model/ModelUtils.h"
 #include "Model/Node.h"
 #include "Model/WorldNode.h"
 #include "View/Actions.h"
@@ -69,6 +69,7 @@
 #include "View/QtUtils.h"
 #include "View/MapViewToolBox.h"
 
+#include <kdl/overload.h>
 #include <kdl/string_format.h>
 #include <kdl/string_utils.h>
 
@@ -91,6 +92,7 @@
 #include <QMessageBox>
 #include <QMimeData>
 #include <QFileDialog>
+#include <QPushButton>
 #include <QStatusBar>
 #include <QStringList>
 #include <QToolBar>
@@ -528,7 +530,7 @@ namespace TrenchBroom {
             }
 
             // get the layers of the selected nodes
-            const std::vector<Model::LayerNode*> selectedObjectLayers = Model::findLayersUserSorted(selectedNodes.nodes());
+            const std::vector<Model::LayerNode*> selectedObjectLayers = Model::findContainingLayersUserSorted(selectedNodes.nodes());
             QString layersDescription;
             if (selectedObjectLayers.size() == 1) {
                 Model::LayerNode* layer = selectedObjectLayers[0];
@@ -545,49 +547,45 @@ namespace TrenchBroom {
             }
 
             // count hidden objects
-            class CountHiddenNodesVisitor : public Model::ConstNodeVisitor {
-            private:
-                const Model::EditorContext& m_editorContext;
-            public:
-                size_t hiddenGroups = 0u;
-                size_t hiddenBrushes = 0u;
-                size_t hiddenEntities = 0u;
-            public:
-                explicit CountHiddenNodesVisitor(const Model::EditorContext& editorContext) : m_editorContext(editorContext) {}
-            private:
-                void doVisit(const Model::WorldNode*) override {}
-                void doVisit(const Model::LayerNode*) override {}
-                void doVisit(const Model::GroupNode* group) override {
-                    if (!m_editorContext.visible(group)) {
+            size_t hiddenGroups = 0u;
+            size_t hiddenEntities = 0u;
+            size_t hiddenBrushes = 0u;
+
+            const auto& editorContext = document->editorContext();
+            document->world()->accept(kdl::overload(
+                [](auto&& thisLambda, const Model::WorldNode* world) { world->visitChildren(thisLambda); },
+                [](auto&& thisLambda, const Model::LayerNode* layer) { layer->visitChildren(thisLambda); },
+                [&](auto&& thisLambda, const Model::GroupNode* group) { 
+                    if (!editorContext.visible(group)) {
                         ++hiddenGroups;
                     }
-                }
-                void doVisit(const Model::EntityNode* entity) override {
-                    if (!m_editorContext.visible(entity)) {
+                    group->visitChildren(thisLambda); 
+                },
+                [&](auto&& thisLambda, const Model::EntityNode* entity) { 
+                    if (!editorContext.visible(entity)) {
                         ++hiddenEntities;
                     }
-                }
-                void doVisit(const Model::BrushNode* brush) override {
-                    if (!m_editorContext.visible(brush)) {
+                    entity->visitChildren(thisLambda); 
+                },
+                [&](const Model::BrushNode* brush) {
+                    if (!editorContext.visible(brush)) {
                         ++hiddenBrushes;
                     }
-                }
-            };
-            auto visitor = CountHiddenNodesVisitor(document->editorContext());
-            document->world()->acceptAndRecurse(visitor);
+                 }
+            ));
 
             // print hidden objects
-            if (visitor.hiddenGroups > 0 || visitor.hiddenEntities > 0 || visitor.hiddenBrushes > 0) {
+            if (hiddenGroups > 0 || hiddenEntities > 0 || hiddenBrushes > 0) {
                 std::vector<std::string> hiddenDescriptors;
 
-                if (visitor.hiddenGroups > 0) {
-                    hiddenDescriptors.push_back(numberWithSuffix(visitor.hiddenGroups, "group", "groups"));
+                if (hiddenGroups > 0) {
+                    hiddenDescriptors.push_back(numberWithSuffix(hiddenGroups, "group", "groups"));
                 }
-                if (visitor.hiddenEntities > 0) {
-                    hiddenDescriptors.push_back(numberWithSuffix(visitor.hiddenEntities, "entity", "entities"));
+                if (hiddenEntities > 0) {
+                    hiddenDescriptors.push_back(numberWithSuffix(hiddenEntities, "entity", "entities"));
                 }
-                if (visitor.hiddenBrushes > 0) {
-                    hiddenDescriptors.push_back(numberWithSuffix(visitor.hiddenBrushes, "brush", "brushes"));
+                if (hiddenBrushes > 0) {
+                    hiddenDescriptors.push_back(numberWithSuffix(hiddenBrushes, "brush", "brushes"));
                 }
 
                 pipeSeparatedSections << QObject::tr("%1 hidden")
@@ -810,6 +808,20 @@ namespace TrenchBroom {
             }
         }
 
+        bool MapFrame::revertDocument() {
+            if (!m_document->persistent()) {
+                return false;
+            }
+            if (!confirmRevertDocument()) {
+                return false;
+            }
+            const auto mapFormat = m_document->world()->format();
+            const auto game = m_document->game();
+            const auto path = m_document->path();
+            m_document->loadDocument(mapFormat, MapDocument::DefaultWorldBounds, game, path);
+            return true;
+        }
+
         bool MapFrame::exportDocumentAsObj() {
             const IO::Path& originalPath = m_document->path();
             const IO::Path objPath = originalPath.replaceExtension("obj");
@@ -873,6 +885,30 @@ namespace TrenchBroom {
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif
+        }
+
+        /**
+         * Returns whether the document should be reverted.
+         */
+        bool MapFrame::confirmRevertDocument() {
+            if (!m_document->modified()) {
+                return true;
+            }
+
+            QMessageBox messageBox(this);
+            messageBox.setWindowTitle("TrenchBroom");
+            messageBox.setIcon(QMessageBox::Question);
+            messageBox.setText(tr("Revert %1 to %2?")
+                .arg(QString::fromStdString(m_document->filename()))
+                .arg(IO::pathAsQString(m_document->path())));
+            messageBox.setInformativeText(tr("This will discard all unsaved changes and reload the document from disk."));
+
+            auto* revertButton = messageBox.addButton(tr("Revert"), QMessageBox::DestructiveRole);
+            messageBox.addButton(QMessageBox::Cancel);
+
+            messageBox.exec();
+
+            return (messageBox.clickedButton() == revertButton);
         }
 
         void MapFrame::loadPointFile() {
@@ -1032,7 +1068,7 @@ namespace TrenchBroom {
                     const vm::bbox3 bounds = m_document->selectionBounds();
 
                     // The pasted objects must be hidden to prevent the picking done in pasteObjectsDelta
-                    // from hitting them (https://github.com/kduske/TrenchBroom/issues/2755)
+                    // from hitting them (https://github.com/TrenchBroom/TrenchBroom/issues/2755)
                     const std::vector<Model::Node*> nodes = m_document->selectedNodes().nodes();
                     m_document->hide(nodes);
                     const vm::vec3 delta = m_mapView->pasteObjectsDelta(bounds, referenceBounds);
@@ -1439,13 +1475,11 @@ namespace TrenchBroom {
         }
 
         void MapFrame::toggleTextureLock() {
-            PreferenceManager::instance().set(Preferences::TextureLock, !pref(Preferences::TextureLock));
-            PreferenceManager::instance().saveChanges();
+            togglePref(Preferences::TextureLock);
         }
 
         void MapFrame::toggleUVLock() {
-            PreferenceManager::instance().set(Preferences::UVLock, !pref(Preferences::UVLock));
-            PreferenceManager::instance().saveChanges();
+            togglePref(Preferences::UVLock);
         }
 
         void MapFrame::toggleShowGrid() {
@@ -1587,20 +1621,9 @@ namespace TrenchBroom {
             showModelessDialog(m_compilationDialog);
         }
 
-        void MapFrame::compilationDialogWillClose() {
-            // Save the compilation and engine configurations just in case:
-            const auto& gameName = m_document->game()->gameName();
-            auto& gameFactory = Model::GameFactory::instance();
-            gameFactory.saveConfigs(gameName);
-        }
-
         void MapFrame::showLaunchEngineDialog() {
             LaunchGameEngineDialog dialog(m_document, this);
             dialog.exec();
-
-            const auto& gameName = m_document->game()->gameName();
-            auto& gameFactory = Model::GameFactory::instance();
-            gameFactory.saveConfigs(gameName);
         }
 
         static const Assets::Texture* textureToReveal(std::shared_ptr<MapDocument> document) {
@@ -1620,9 +1643,13 @@ namespace TrenchBroom {
 
         void MapFrame::revealTexture() {
             if (const auto texture = textureToReveal(m_document)) {
-                m_inspector->switchToPage(InspectorPage::Face);
-                m_inspector->faceInspector()->revealTexture(texture);
+                revealTexture(texture);
             }
+        }
+
+        void MapFrame::revealTexture(const Assets::Texture* texture) {
+            m_inspector->switchToPage(InspectorPage::Face);
+            m_inspector->faceInspector()->revealTexture(texture);
         }
 
         void MapFrame::debugPrintVertices() {
@@ -1669,7 +1696,6 @@ namespace TrenchBroom {
 #endif
         static void debugSegfault() {
             volatile void *test = nullptr;
-            // cppcheck-suppress nullPointer
             printf("%p\n", *((void **)test));
         }
 #ifdef __clang__

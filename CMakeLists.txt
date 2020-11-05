@@ -69,7 +69,7 @@ else()
 endif()
 
 # Request 8MB stack on Windows. (NOTE: /STACK should be used on .exe targets only.)
-# Default is 1MB and we need more for our current AABB builder on large maps (https://github.com/kduske/TrenchBroom/issues/2803)
+# Default is 1MB and we need more for our current AABB builder on large maps (https://github.com/TrenchBroom/TrenchBroom/issues/2803)
 if(COMPILER_IS_MSVC)
     set(TB_STACK_SIZE 8388608)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:${TB_STACK_SIZE}")
@@ -136,6 +136,3 @@ add_subdirectory(lib)
 add_subdirectory(common)
 add_subdirectory(dump-shortcuts)
 add_subdirectory(app)
-
-# Hack: gmock does not support unity builds but doesn't opt out itself
-set_target_properties(gmock PROPERTIES UNITY_BUILD OFF)

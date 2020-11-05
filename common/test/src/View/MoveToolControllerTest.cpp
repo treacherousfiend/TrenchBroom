@@ -17,10 +17,6 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <catch2/catch.hpp>
-
-#include "GTestCompat.h"
-
 #include "Renderer/PerspectiveCamera.h"
 #include "View/Grid.h"
 #include "View/MoveToolController.h"
@@ -29,6 +25,9 @@
 #include <kdl/vector_utils.h>
 
 #include <variant>
+
+#include "Catch2.h"
+#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace View {
@@ -141,7 +140,7 @@ namespace TrenchBroom {
         }
 
         TEST_CASE("MoveToolControllerTest.testMoveAfterZeroVerticalMove", "[MoveToolControllerTest]") {
-            // see https://github.com/kduske/TrenchBroom/issues/1529
+            // see https://github.com/TrenchBroom/TrenchBroom/issues/1529
 
             const Renderer::Camera::Viewport viewport(-200, -200, 400, 400);
             Renderer::PerspectiveCamera camera(90.0f, 0.1f, 500.0f, viewport, vm::vec3f(0.0f, 0.0f, 100.0f), vm::vec3f::neg_z(), vm::vec3f::pos_y());
@@ -184,7 +183,7 @@ namespace TrenchBroom {
 
 
         TEST_CASE("MoveToolControllerTest.testDontJumpAfterVerticalMoveWithOffset", "[MoveToolControllerTest]") {
-            // see https://github.com/kduske/TrenchBroom/pull/1635#issuecomment-271460182
+            // see https://github.com/TrenchBroom/TrenchBroom/pull/1635#issuecomment-271460182
 
             const Renderer::Camera::Viewport viewport(0, 0, 400, 400);
             Renderer::PerspectiveCamera camera(90.0f, 0.1f, 500.0f, viewport, vm::vec3f(0.0f, 0.0f, 100.0f),
