@@ -614,8 +614,7 @@ namespace TrenchBroom {
                 ));
             }
 
-            kdl::vec_sort_and_remove_duplicates(nodes);
-            return nodes;
+            return kdl::vec_sort_and_remove_duplicates(std::move(nodes));
         }
 
         const Model::NodeCollection& MapDocument::selectedNodes() const {
@@ -676,7 +675,7 @@ namespace TrenchBroom {
             for (auto* node : nodes) {
                 auto* parent = node->parent();
                 if (!visited.insert(parent).second) {
-                    kdl::vec_append(nodesToSelect, Model::collectSelectableNodes(parent->children(), editorContext()));
+                    nodesToSelect = kdl::vec_concat(std::move(nodesToSelect), Model::collectSelectableNodes(parent->children(), editorContext()));
                 }
             }
 
@@ -905,7 +904,7 @@ namespace TrenchBroom {
             if (nodes.empty())
                 return nodes;
 
-            kdl::vec_sort(nodes, CompareByAncestry());
+            nodes = kdl::vec_sort(std::move(nodes), CompareByAncestry());
 
             std::vector<Model::Node*> result;
             result.reserve(nodes.size());
@@ -1118,8 +1117,7 @@ namespace TrenchBroom {
                     }
                 }
             ));
-            kdl::vec_sort_and_remove_duplicates(result);
-            return result;
+            return kdl::vec_sort_and_remove_duplicates(std::move(result));
         }
 
         void MapDocument::ungroupSelection() {
@@ -1136,7 +1134,7 @@ namespace TrenchBroom {
                 Model::Node* parent = group->parent();
                 const std::vector<Model::Node*> children = group->children();
                 reparentNodes(parent, children);
-                kdl::vec_append(allChildren, children);
+                allChildren = kdl::vec_concat(std::move(allChildren), children);
             }
 
             select(allChildren);
@@ -1280,7 +1278,7 @@ namespace TrenchBroom {
                             } else {
                                 if (!kdl::vec_contains(nodesToMove, entity)) {
                                     nodesToMove.push_back(entity);
-                                    kdl::vec_append(nodesToSelect, entity->children());
+                                    nodesToSelect = kdl::vec_concat(std::move(nodesToSelect), entity->children());
                                 }
                             }
                         }
@@ -1631,8 +1629,9 @@ namespace TrenchBroom {
                     .visit(kdl::overload(
                         [&](const std::vector<Model::Brush>& brushes) {
                             if (!brushes.empty()) {
-                                const std::vector<Model::BrushNode*> resultNodes = kdl::vec_transform(std::move(brushes), [&](auto b) { return m_world->createBrush(std::move(b)); });
-                                kdl::vec_append(toAdd[minuendNode->parent()], resultNodes);
+                                std::vector<Model::BrushNode*> resultNodes = kdl::vec_transform(std::move(brushes), [&](auto b) { return m_world->createBrush(std::move(b)); });
+                                auto& toAddForParent = toAdd[minuendNode->parent()];
+                                toAddForParent = kdl::vec_concat(std::move(toAddForParent), std::move(resultNodes));
                             }
                         },
                         [&](const Model::BrushError e) {
@@ -1716,7 +1715,8 @@ namespace TrenchBroom {
                                 return new Model::BrushNode(std::move(b));
                             });
 
-                            kdl::vec_append(toAdd[brushNode->parent()], fragmentNodes);
+                            auto& toAddForParent = toAdd[brushNode->parent()];
+                            toAddForParent = kdl::vec_concat(std::move(toAddForParent), fragmentNodes);
                             toRemove.push_back(brushNode);
                         },
                         [&](const Model::BrushError e) {
