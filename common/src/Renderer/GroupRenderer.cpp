@@ -68,7 +68,7 @@ namespace TrenchBroom {
             invalidate();
         }
 
-        void GroupRenderer::invalidateGroup(Model::GroupNode* group) {
+        void GroupRenderer::invalidateGroup(Model::GroupNode*) {
             // FIXME:
             invalidate();
         }

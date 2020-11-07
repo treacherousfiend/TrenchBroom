@@ -341,7 +341,7 @@ namespace TrenchBroom {
             qDebug() << functionName << nodes.size() << "nodes";
         }
 
-        static void debugLog(const char* functionName, const Model::Node* node) {
+        static void debugLog(const char* functionName, const Model::Node*) {
             qDebug() << functionName << "1 node";
         }
 
@@ -479,7 +479,7 @@ namespace TrenchBroom {
                     ++invalidatedNodes;
                     entity->visitChildren(thisLambda);
                 },
-                [&](auto&& thisLambda, Model::BrushNode* brush) {
+                [&](auto&&, Model::BrushNode* brush) {
                     m_brushRenderer->invalidateBrush(brush);
                     ++invalidatedNodes;
                 }

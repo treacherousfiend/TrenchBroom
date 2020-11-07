@@ -83,7 +83,7 @@ namespace TrenchBroom {
             invalidate();
         }
 
-        void EntityRenderer::invalidateEntity(Model::EntityNode* entity) {
+        void EntityRenderer::invalidateEntity(Model::EntityNode*) {
             invalidate();
         }
 
