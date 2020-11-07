@@ -238,36 +238,33 @@ namespace TrenchBroom {
         void MapRenderer::setupEntityLinkRenderer() {
         }
 
-        class MapRenderer::CollectRenderableNodes : public Model::NodeVisitor {
-        public:
-            Model::NodeCollection nodes;
-        private:
-            void doVisit(Model::WorldNode*) override   {}
-            void doVisit(Model::LayerNode*) override   {}
-
-            void doVisit(Model::GroupNode* group) override   {
-                nodes.addNode(group);
-            }
-
-            void doVisit(Model::EntityNode* entity) override {
-                nodes.addNode(entity);
-            }
-
-            void doVisit(Model::BrushNode* brush) override   {
-                nodes.addNode(brush);
-            }
-        };
-
         void MapRenderer::updateRenderers() {
             auto document = kdl::mem_lock(m_document);
             Model::WorldNode* world = document->world();
 
-            CollectRenderableNodes collect;
-            world->acceptAndRecurse(collect);
+            std::vector<Model::EntityNode*> entities;
+            std::vector<Model::GroupNode*> groups;
+            std::vector<Model::BrushNode*> brushes;
 
-            m_entityRenderer->setEntities(collect.nodes.entities());
-            m_groupRenderer->setGroups(collect.nodes.groups());
-            m_brushRenderer->setBrushes(collect.nodes.brushes());
+            world->accept(kdl::overload(
+                [&](auto&& thisLambda, Model::WorldNode* world) { world->visitChildren(thisLambda); },
+                [&](auto&& thisLambda, Model::LayerNode* layer) { layer->visitChildren(thisLambda); },
+                [&](auto&& thisLambda, Model::GroupNode* group) {
+                    groups.push_back(group);
+                    group->visitChildren(thisLambda);
+                },
+                [&](auto&& thisLambda, Model::EntityNode* entity) {
+                    entities.push_back(entity);
+                    entity->visitChildren(thisLambda);
+                },
+                [&](Model::BrushNode* brush) {
+                    brushes.push_back(brush);
+                }
+            ));
+
+            m_entityRenderer->setEntities(entities);
+            m_groupRenderer->setGroups(groups);
+            m_brushRenderer->setBrushes(brushes);
 
             invalidateEntityLinkRenderer();
         }
@@ -448,11 +445,6 @@ namespace TrenchBroom {
             invalidateEntityLinkRenderer();
         }
 
-        void MapRenderer::mapViewConfigDidChange() {
-            invalidateRenderers();
-            invalidateEntityLinkRenderer();
-        }
-
         void MapRenderer::preferenceDidChange(const IO::Path& path) {
             setupRenderers();
 
@@ -464,51 +456,39 @@ namespace TrenchBroom {
             }
 
             if (path.hasPrefix(IO::Path("Map view"), true)) {
-                invalidateRenderers(Renderer_All);
+                invalidateRenderers();
                 invalidateEntityLinkRenderer();
             }
         }
 
         // invalidating specific nodes
 
-        class MapRenderer::InvalidateNode : public Model::NodeVisitor {
-        private:
-            MapRenderer& m_parent;
-        public:
-            size_t invalidatedNodes;
-        public:
-            InvalidateNode(MapRenderer& parent) : m_parent(parent), invalidatedNodes(0u) {}
-        private:
-            void doVisit(Model::WorldNode*) override   {}
-            void doVisit(Model::LayerNode*) override   {}
-
-            void doVisit(Model::GroupNode* group) override   {
-                m_parent.m_groupRenderer->invalidateGroup(group);
-                ++invalidatedNodes;
-            }
-
-            void doVisit(Model::EntityNode* entity) override {
-                m_parent.m_entityRenderer->invalidateEntity(entity);
-                ++invalidatedNodes;
-            }
-
-            void doVisit(Model::BrushNode* brush) override   {
-                m_parent.m_brushRenderer->invalidateBrush(brush);
-                ++invalidatedNodes;
-            }
-        };
-
         void MapRenderer::invalidateNodes(const std::vector<Model::Node*>& nodes) {
-            InvalidateNode visitor(*this);
-            for (const auto& node : nodes) {
-                node->acceptAndRecurse(visitor);
-            }
+            size_t invalidatedNodes = 0;
+
+            Model::Node::visitAll(nodes, kdl::overload(
+                [](auto&& thisLambda, Model::WorldNode* world)  { world->visitChildren(thisLambda); },
+                [](auto&& thisLambda, Model::LayerNode* layer)  { layer->visitChildren(thisLambda); },
+                [&](auto&& thisLambda, Model::GroupNode* group) {
+                    m_groupRenderer->invalidateGroup(group);
+                    ++invalidatedNodes;
+                    group->visitChildren(thisLambda);
+                },
+                [&](auto&& thisLambda, Model::EntityNode* entity) {
+                    m_entityRenderer->invalidateEntity(entity);
+                    ++invalidatedNodes;
+                    entity->visitChildren(thisLambda);
+                },
+                [&](auto&& thisLambda, Model::BrushNode* brush) {
+                    m_brushRenderer->invalidateBrush(brush);
+                    ++invalidatedNodes;
+                }
+            ));
         }
 
         void MapRenderer::invalidateBrushFaces(const std::vector<Model::BrushFaceHandle>& faces) {
-            InvalidateNode visitor(*this);
             for (const auto& face : faces) {
-                face.node()->accept(visitor);
+                m_brushRenderer->invalidateBrush(face.node());
             }
         }
     }
