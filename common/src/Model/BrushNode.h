@@ -33,7 +33,6 @@
 
 #include <vecmath/forward.h>
 
-#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -61,7 +60,6 @@ namespace TrenchBroom {
             size_t m_selectedFaceCount = 0u;
         public:
             explicit BrushNode(Brush brush);
-            ~BrushNode() override;
         public:
             BrushNode* clone(const vm::bbox3& worldBounds) const;
 

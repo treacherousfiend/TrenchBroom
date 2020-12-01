@@ -68,8 +68,6 @@ namespace TrenchBroom {
             updateSelectedFaceCount();
         }
 
-        BrushNode::~BrushNode() = default;
-
         BrushNode* BrushNode::clone(const vm::bbox3& worldBounds) const {
             return static_cast<BrushNode*>(Node::clone(worldBounds));
         }
