@@ -62,10 +62,8 @@ namespace TrenchBroom {
         size_t bytesPerPixelForFormat(const GLenum format) {
             switch (format) {
                 case GL_RGB:
-                case GL_BGR:
                     return 3U;
                 case GL_RGBA:
-                case GL_BGRA:
                     return 4U;
             }
             ensure(false, "unknown format");

@@ -25,8 +25,8 @@
 
 namespace TrenchBroom {
     namespace Renderer {
+        class OpenGLWrapper;
         class Vbo;
-        class ShaderManager;
 
         enum class VboType {
             ArrayBuffer,
@@ -43,9 +43,9 @@ namespace TrenchBroom {
             size_t m_peakVboCount;
             size_t m_currentVboCount;
             size_t m_currentVboSize;
-            ShaderManager* m_shaderManager;
+            OpenGLWrapper& m_openGLWrapper;
         public:
-            explicit VboManager(ShaderManager* shaderManager);
+            explicit VboManager(OpenGLWrapper& openGLWrapper);
             /**
             * Immediately creates and binds to an OpenGL buffer of the given type and capacity.
             * The contents are initially unspecified. See Vbo class.
@@ -56,8 +56,6 @@ namespace TrenchBroom {
             size_t peakVboCount() const;
             size_t currentVboCount() const;
             size_t currentVboSize() const;
-
-            ShaderManager& shaderManager();
         };
     }
 }

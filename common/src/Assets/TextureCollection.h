@@ -27,16 +27,16 @@
 #include <vector>
 
 namespace TrenchBroom {
+    namespace Renderer {
+        class RenderContext;
+    }
+
     namespace Assets {
         class TextureCollection {
         private:
-            using TextureIdList = std::vector<GLuint>;
-
             bool m_loaded;
             IO::Path m_path;
             std::vector<Texture> m_textures;
-
-            TextureIdList m_textureIds;
 
             friend class Texture;
         public:
@@ -68,7 +68,7 @@ namespace TrenchBroom {
             Texture* textureByName(const std::string& name);
 
             bool prepared() const;
-            void prepare(int minFilter, int magFilter);
+            void prepare(Renderer::RenderContext& renderContext, int minFilter, int magFilter);
             void setTextureMode(int minFilter, int magFilter);
         };
     }

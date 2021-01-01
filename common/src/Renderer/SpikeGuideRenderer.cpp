@@ -70,20 +70,21 @@ namespace TrenchBroom {
             m_valid = true;
         }
 
-        void SpikeGuideRenderer::doPrepareVertices(VboManager& vboManager) {
+        void SpikeGuideRenderer::doPrepareVertices(RenderContext& renderContext) {
             if (!m_valid)
                 validate();
-            m_pointArray.prepare(vboManager);
-            m_spikeArray.prepare(vboManager);
+            m_pointArray.prepare(renderContext);
+            m_spikeArray.prepare(renderContext);
         }
 
-        void SpikeGuideRenderer::doRender(RenderContext& renderContext) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::VaryingPCShader);
-            m_spikeArray.render(PrimType::Lines);
+        void SpikeGuideRenderer::doRender(RenderState& renderState) {
+            ActiveShader shader(renderState, Shaders::VaryingPCShader);
+            m_spikeArray.render(renderState, PrimType::Lines);
 
-            glAssert(glPointSize(3.0f));
-            m_pointArray.render(PrimType::Points);
-            glAssert(glPointSize(1.0f));
+            // GLESTODO: move to shaders
+            //renderState.gl().glPointSize(3.0f);
+            m_pointArray.render(renderState, PrimType::Points);
+            //renderState.gl().glPointSize(1.0f);
         }
 
         void SpikeGuideRenderer::addPoint(const vm::vec3& position) {

@@ -42,10 +42,6 @@ namespace TrenchBroom {
                     return GL_TRIANGLE_FAN;
                 case PrimType::TriangleStrip:
                     return GL_TRIANGLE_STRIP;
-                case PrimType::QuadStrip:
-                    return GL_QUAD_STRIP;
-                case PrimType::Polygon:
-                    return GL_POLYGON;
                 switchDefault()
             }
         }

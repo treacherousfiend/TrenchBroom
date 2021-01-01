@@ -28,6 +28,7 @@
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderService.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/TextAnchor.h"
 
 #include <vector>
@@ -109,30 +110,30 @@ namespace TrenchBroom {
             m_occludedBoundsColor = occludedBoundsColor;
         }
 
-        void GroupRenderer::render(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void GroupRenderer::render(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_groups.empty()) {
-                if (renderContext.showGroupBounds()) {
-                    renderBounds(renderContext, renderBatch);
-                    renderNames(renderContext, renderBatch);
+                if (renderState.showGroupBounds()) {
+                    renderBounds(renderState, renderBatch);
+                    renderNames(renderState, renderBatch);
                 }
             }
         }
 
-        void GroupRenderer::renderBounds(RenderContext&, RenderBatch& renderBatch) {
+        void GroupRenderer::renderBounds(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_boundsValid) {
                 validateBounds();
             }
 
             if (m_showOccludedBounds) {
-                m_boundsRenderer.renderOnTop(renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
+                m_boundsRenderer.renderOnTop(renderState, renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
             }
 
-            m_boundsRenderer.render(renderBatch, m_overrideBoundsColor, m_boundsColor);
+            m_boundsRenderer.render(renderState, renderBatch, m_overrideBoundsColor, m_boundsColor);
         }
 
-        void GroupRenderer::renderNames(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void GroupRenderer::renderNames(RenderState& renderState, RenderBatch& renderBatch) {
             if (m_showOverlays) {
-                Renderer::RenderService renderService(renderContext, renderBatch);
+                Renderer::RenderService renderService(renderState, renderBatch);
                 renderService.setForegroundColor(m_overlayTextColor);
                 renderService.setBackgroundColor(m_overlayBackgroundColor);
 

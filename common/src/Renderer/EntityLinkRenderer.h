@@ -38,6 +38,7 @@ namespace TrenchBroom {
     namespace Renderer {
         class RenderBatch;
         class RenderContext;
+        class RenderState;
 
         class EntityLinkRenderer : public DirectRenderable {
         public:
@@ -71,13 +72,13 @@ namespace TrenchBroom {
             void setDefaultColor(const Color& color);
             void setSelectedColor(const Color& color);
 
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
             void invalidate();
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
-            void renderLines(RenderContext& renderContext);
-            void renderArrows(RenderContext& renderContext);
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
+            void renderLines(RenderState& renderState);
+            void renderArrows(RenderState& renderState);
         private:
             void validate();
 

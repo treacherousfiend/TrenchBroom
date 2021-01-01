@@ -113,7 +113,6 @@ namespace TrenchBroom {
                     }
                     break;
                 }
-                case Renderer::PrimType::Polygon:
                 case Renderer::PrimType::TriangleFan: {
                     assert(count > 2);
                     m_tris.reserve(m_tris.size() + (count - 2) * 3);
@@ -136,7 +135,6 @@ namespace TrenchBroom {
                     break;
                 }
                 case Renderer::PrimType::Quads:
-                case Renderer::PrimType::QuadStrip:
                 case Renderer::PrimType::TriangleStrip: {
                     assert(count > 2);
                     m_tris.reserve(m_tris.size() + (count - 2) * 3);
@@ -317,8 +315,8 @@ namespace TrenchBroom {
             return m_name;
         }
 
-        void EntityModelSurface::prepare(const int minFilter, const int magFilter) {
-            m_skins->prepare(minFilter, magFilter);
+        void EntityModelSurface::prepare(Renderer::RenderContext& renderContext, const int minFilter, const int magFilter) {
+            m_skins->prepare(renderContext, minFilter, magFilter);
         }
 
         void EntityModelSurface::setTextureMode(const int minFilter, const int magFilter) {
@@ -398,10 +396,10 @@ namespace TrenchBroom {
             return m_prepared;
         }
 
-        void EntityModel::prepare(const int minFilter, const int magFilter) {
+        void EntityModel::prepare(Renderer::RenderContext& renderContext, const int minFilter, const int magFilter) {
             if (!m_prepared) {
                 for (auto& surface : m_surfaces) {
-                    surface->prepare(minFilter, magFilter);
+                    surface->prepare(renderContext, minFilter, magFilter);
                 }
                 m_prepared = true;
             }

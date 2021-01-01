@@ -23,7 +23,8 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        class VboManager;
+        class RenderContext;
+        class RenderState;
 
         class Sphere {
         private:
@@ -32,8 +33,8 @@ namespace TrenchBroom {
             Sphere(float radius, size_t iterations);
 
             bool prepared() const;
-            void prepare(VboManager& vboManager);
-            void render();
+            void prepare(RenderContext& renderContext);
+            void render(RenderState& renderState);
         };
     }
 }

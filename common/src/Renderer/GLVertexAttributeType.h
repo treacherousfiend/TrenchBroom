@@ -22,6 +22,8 @@
 #include "Ensure.h"
 #include "Macros.h"
 #include "Renderer/GL.h"
+#include "Renderer/OpenGLWrapper.h"
+#include "Renderer/RenderContext.h"
 #include "Renderer/ShaderProgram.h"
 
 #include <vecmath/vec.h>
@@ -47,17 +49,12 @@ namespace TrenchBroom {
 
             static void setup(ShaderProgram* program, const size_t /* index */, const size_t stride, const size_t offset) {
                 ensure(program != nullptr, "must have a program bound to use generic attributes");
-
-                const GLint attributeIndex = program->findAttributeLocation(A::name);
-                glAssert(glEnableVertexAttribArray(static_cast<GLuint>(attributeIndex)))
-                glAssert(glVertexAttribPointer(static_cast<GLuint>(attributeIndex), static_cast<GLint>(S), D, Normalize ? GL_TRUE : GL_FALSE, static_cast<GLsizei>(stride), reinterpret_cast<GLvoid*>(offset)))
+                program->enableAttribute(A::name, S, D, Normalize, stride, offset);
             }
 
             static void cleanup(ShaderProgram* program, const size_t /* index */) {
                 ensure(program != nullptr, "must have a program bound to use generic attributes");
-
-                const GLint attributeIndex = program->findAttributeLocation(A::name);
-                glAssert(glDisableVertexAttribArray(static_cast<GLuint>(attributeIndex)))
+                program->disableAttribute(A::name);
             }
 
             // Non-instantiable
@@ -78,13 +75,14 @@ namespace TrenchBroom {
             using ElementType = vm::vec<ComponentType,S>;
             static const size_t Size = sizeof(ElementType);
 
-            static void setup(ShaderProgram* /* program */, const size_t /* index */, const size_t stride, const size_t offset) {
-                glAssert(glEnableClientState(GL_VERTEX_ARRAY))
-                glAssert(glVertexPointer(static_cast<GLint>(S), D, static_cast<GLsizei>(stride), reinterpret_cast<GLvoid*>(offset)))
+            static void setup(ShaderProgram* program, const size_t /* index */, const size_t stride, const size_t offset) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->enableAttribute("gl_Position", S, D, false, stride, offset);
             }
 
-            static void cleanup(ShaderProgram* /* program */, const size_t /* index */) {
-                glAssert(glDisableClientState(GL_VERTEX_ARRAY))
+            static void cleanup(ShaderProgram* program, const size_t /* index */) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->disableAttribute("gl_Position");
             }
 
             // Non-instantiable
@@ -105,14 +103,15 @@ namespace TrenchBroom {
             using ElementType = vm::vec<ComponentType,S>;
             static const size_t Size = sizeof(ElementType);
 
-            static void setup(ShaderProgram* /* program */, const size_t /* index */, const size_t stride, const size_t offset) {
+            static void setup(ShaderProgram* program, const size_t /* index */, const size_t stride, const size_t offset) {
                 assert(S == 3);
-                glAssert(glEnableClientState(GL_NORMAL_ARRAY))
-                glAssert(glNormalPointer(D, static_cast<GLsizei>(stride), reinterpret_cast<GLvoid*>(offset)))
-            }
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->enableAttribute("gl_Normal", S, D, false, stride, offset);
+           }
 
-            static void cleanup(ShaderProgram* /* program */, const size_t /* index */) {
-                glAssert(glDisableClientState(GL_NORMAL_ARRAY))
+            static void cleanup(ShaderProgram* program, const size_t /* index */) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->disableAttribute("gl_Normal");
             }
 
             // Non-instantiable
@@ -133,13 +132,14 @@ namespace TrenchBroom {
             using ElementType = vm::vec<ComponentType,S>;
             static const size_t Size = sizeof(ElementType);
 
-            static void setup(ShaderProgram* /* program */, const size_t /* index */, const size_t stride, const size_t offset) {
-                glAssert(glEnableClientState(GL_COLOR_ARRAY))
-                glAssert(glColorPointer(static_cast<GLint>(S), D, static_cast<GLsizei>(stride), reinterpret_cast<GLvoid*>(offset)))
+            static void setup(ShaderProgram* program, const size_t /* index */, const size_t stride, const size_t offset) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->enableAttribute("gl_Color", S, D, false, stride, offset);
             }
 
-            static void cleanup(ShaderProgram* /* program */, const size_t /* index */) {
-                glAssert(glDisableClientState(GL_COLOR_ARRAY))
+            static void cleanup(ShaderProgram* program, const size_t /* index */) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->disableAttribute("gl_Color");
             }
 
             // Non-instantiable
@@ -160,15 +160,14 @@ namespace TrenchBroom {
             using ElementType = vm::vec<ComponentType,S>;
             static const size_t Size = sizeof(ElementType);
 
-            static void setup(ShaderProgram* /* program */, const size_t /* index */, const size_t stride, const size_t offset) {
-                glAssert(glClientActiveTexture(GL_TEXTURE0))
-                glAssert(glEnableClientState(GL_TEXTURE_COORD_ARRAY))
-                glAssert(glTexCoordPointer(static_cast<GLint>(S), D, static_cast<GLsizei>(stride), reinterpret_cast<GLvoid*>(offset)))
-            }
+            static void setup(ShaderProgram* program, const size_t /* index */, const size_t stride, const size_t offset) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->enableAttribute("gl_TexCoord", S, D, false, stride, offset);
+           }
 
-            static void cleanup(ShaderProgram* /* program */, const size_t /* index */) {
-                glAssert(glClientActiveTexture(GL_TEXTURE0))
-                glAssert(glDisableClientState(GL_TEXTURE_COORD_ARRAY))
+            static void cleanup(ShaderProgram* program, const size_t /* index */) {
+                ensure(program != nullptr, "must have a program bound to use attributes");
+                program->disableAttribute("gl_TexCoord");
             }
 
             // Non-instantiable

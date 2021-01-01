@@ -167,10 +167,10 @@ namespace TrenchBroom {
             }
         }
 
-        void TextureManager::prepare() {
+        void TextureManager::prepare(Renderer::RenderContext& renderContext) {
             for (const size_t index : m_toPrepare) {
                 auto& collection = m_collections[index];
-                collection.prepare(m_minFilter, m_magFilter);
+                collection.prepare(renderContext, m_minFilter, m_magFilter);
             }
             m_toPrepare.clear();
         }

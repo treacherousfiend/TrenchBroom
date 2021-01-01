@@ -24,36 +24,6 @@
 #include <string>
 
 namespace TrenchBroom {
-    void glCheckError(const std::string& msg) {
-        const GLenum error = glGetError();
-        if (error != GL_NO_ERROR) {
-            throw RenderException("OpenGL error: " + std::to_string(error) + " (" + glGetErrorMessage(error) + ") " + msg);
-        }
-    }
-
-    std::string glGetErrorMessage(const GLenum code) {
-        switch (code) {
-            case GL_INVALID_ENUM:
-                return "GL_INVALID_ENUM";
-            case GL_INVALID_VALUE:
-                return "GL_INVALID_VALUE";
-            case GL_INVALID_OPERATION:
-                return "GL_INVALID_OPERATION";
-            case GL_STACK_OVERFLOW:
-                return "GL_STACK_OVERFLOW";
-            case GL_STACK_UNDERFLOW:
-                return "GL_STACK_UNDERFLOW";
-            case GL_INVALID_FRAMEBUFFER_OPERATION:
-                return "GL_INVALID_FRAMEBUFFER_OPERATION";
-            case GL_CONTEXT_LOST:
-                return "GL_CONTEXT_LOST";
-            case GL_TABLE_TOO_LARGE:
-                return "GL_TABLE_TOO_LARGE";
-            default:
-                return "UNKNOWN";
-        }
-    }
-
     GLenum glGetEnum(const std::string& name) {
         if (name == "GL_ONE") {
             return GL_ONE;

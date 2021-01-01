@@ -33,7 +33,7 @@ namespace TrenchBroom {
 
     namespace Renderer {
         class RenderBatch;
-        class RenderContext;
+        class RenderState;
 
         class GroupRenderer {
         private:
@@ -94,10 +94,10 @@ namespace TrenchBroom {
             void setShowOccludedBounds(bool showOccludedBounds);
             void setOccludedBoundsColor(const Color& occludedBoundsColor);
         public: // rendering
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private:
-            void renderBounds(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderNames(RenderContext& renderContext, RenderBatch& renderBatch);
+            void renderBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderNames(RenderState& renderState, RenderBatch& renderBatch);
 
             struct BuildColoredBoundsVertices;
             struct BuildBoundsVertices;

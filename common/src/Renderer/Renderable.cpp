@@ -21,12 +21,12 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        void Renderable::render(RenderContext& renderContext) {
-            doRender(renderContext);
+        void Renderable::render(RenderState& renderState) {
+            doRender(renderState);
         }
 
-        void DirectRenderable::prepareVertices(VboManager& vboManager) {
-            doPrepareVertices(vboManager);
+        void DirectRenderable::prepareVertices(RenderContext& renderContext) {
+            doPrepareVertices(renderContext);
         }
     }
 }

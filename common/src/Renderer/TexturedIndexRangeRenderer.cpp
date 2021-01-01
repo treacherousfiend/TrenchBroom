@@ -39,20 +39,20 @@ namespace TrenchBroom {
             return m_vertexArray.empty();
         }
 
-        void TexturedIndexRangeRenderer::prepare(VboManager& vboManager) {
-            m_vertexArray.prepare(vboManager);
+        void TexturedIndexRangeRenderer::prepare(RenderContext& renderContext) {
+            m_vertexArray.prepare(renderContext);
         }
 
-        void TexturedIndexRangeRenderer::render() {
+        void TexturedIndexRangeRenderer::render(RenderState& renderState) {
             if (m_vertexArray.setup()) {
-                m_indexRange.render(m_vertexArray);
+                m_indexRange.render(renderState, m_vertexArray);
                 m_vertexArray.cleanup();
             }
         }
 
-        void TexturedIndexRangeRenderer::render(TextureRenderFunc& func) {
+        void TexturedIndexRangeRenderer::render(RenderState& renderState, TextureRenderFunc& func) {
             if (m_vertexArray.setup()) {
-                m_indexRange.render(m_vertexArray, func);
+                m_indexRange.render(renderState, m_vertexArray, func);
                 m_vertexArray.cleanup();
             }
         }
@@ -71,21 +71,21 @@ namespace TrenchBroom {
             return true;
         }
 
-        void MultiTexturedIndexRangeRenderer::prepare(VboManager& vboManager) {
+        void MultiTexturedIndexRangeRenderer::prepare(RenderContext& renderContext) {
             for (auto& renderer : m_renderers) {
-                renderer->prepare(vboManager);
+                renderer->prepare(renderContext);
             }
         }
 
-        void MultiTexturedIndexRangeRenderer::render() {
+        void MultiTexturedIndexRangeRenderer::render(RenderState& renderState) {
             for (auto& renderer : m_renderers) {
-                renderer->render();
+                renderer->render(renderState);
             }
         }
 
-        void MultiTexturedIndexRangeRenderer::render(TextureRenderFunc& func) {
+        void MultiTexturedIndexRangeRenderer::render(RenderState& renderState, TextureRenderFunc& func) {
             for (auto& renderer : m_renderers) {
-                renderer->render(func);
+                renderer->render(renderState, func);
             }
         }
     }

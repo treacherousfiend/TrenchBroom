@@ -27,6 +27,7 @@
 
 namespace TrenchBroom {
     namespace Renderer {
+        class OpenGLWrapper;
         class Shader;
         class ShaderConfig;
         class ShaderProgram;
@@ -40,8 +41,9 @@ namespace TrenchBroom {
             ShaderCache m_shaders;
             ShaderProgramCache m_programs;
             ShaderProgram* m_currentProgram;
+            OpenGLWrapper& m_openGLWrapper;
         public:
-            ShaderManager();
+            ShaderManager(OpenGLWrapper& openGLWrapper);
             ~ShaderManager();
         public:
             ShaderProgram& program(const ShaderConfig& config);

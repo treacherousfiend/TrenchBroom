@@ -20,6 +20,7 @@
 #include "IndexRangeMap.h"
 
 #include "Renderer/PrimType.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/VertexArray.h"
 
 #include <kdl/vector_utils.h>
@@ -68,8 +69,6 @@ namespace TrenchBroom {
                 case PrimType::LineLoop:
                 case PrimType::TriangleFan:
                 case PrimType::TriangleStrip:
-                case PrimType::QuadStrip:
-                case PrimType::Polygon:
                     assert(dynamicGrowth || indices.capacity() > indices.size());
                     indices.push_back(static_cast<GLint>(index));
                     counts.push_back(static_cast<GLsizei>(count));
@@ -137,12 +136,12 @@ namespace TrenchBroom {
             }
         }
 
-        void IndexRangeMap::render(VertexArray& vertexArray) const {
+        void IndexRangeMap::render(RenderState& renderState, VertexArray& vertexArray) const {
             for (const auto& primType : PrimTypeValues) {
                 const auto& indicesAndCounts = m_data->get(primType);
                 if (!indicesAndCounts.empty()) {
                     const auto primCount = static_cast<GLsizei>(indicesAndCounts.size());
-                    vertexArray.render(primType, indicesAndCounts.indices, indicesAndCounts.counts, primCount);
+                    vertexArray.render(renderState, primType, indicesAndCounts.indices, indicesAndCounts.counts, primCount);
                 }
             }
         }

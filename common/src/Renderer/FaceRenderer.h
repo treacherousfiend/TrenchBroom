@@ -64,11 +64,11 @@ namespace TrenchBroom {
             void setTintColor(const Color& color);
             void setAlpha(float alpha);
 
-            void render(RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
             static vm::vec3f gridColorForTexture(const Assets::Texture* texture);
         private:
-            void prepareVerticesAndIndices(VboManager& vboManager) override;
-            void doRender(RenderContext& context) override;
+            void prepareVerticesAndIndices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
         };
 
         void swap(FaceRenderer& left, FaceRenderer& right);

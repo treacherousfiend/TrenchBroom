@@ -29,6 +29,7 @@
 
 namespace TrenchBroom {
     namespace Renderer {
+        class RenderState;
         class VertexArray;
 
         /**
@@ -143,7 +144,7 @@ namespace TrenchBroom {
              *
              * @param vertexArray the vertex array to render with
              */
-            void render(VertexArray& vertexArray) const;
+            void render(RenderState& renderState, VertexArray& vertexArray) const;
 
             /**
              * Invokes the given function for each primitive stored in this map.

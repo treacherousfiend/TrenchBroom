@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Renderer/VboManager.h"
+#include "Renderer/OpenGLWrapper.h"
 
 #include <cassert>
 #include <vector>
@@ -40,12 +41,13 @@ namespace TrenchBroom {
             GLenum m_type;
             size_t m_capacity;
             GLuint m_bufferId;
+            OpenGLWrapper& m_openGLWrapper;
 
             /**
              * Immediately creates and binds to a buffer of the given type and capacity.
              * The contents are initially unspecified.
              */
-            Vbo(GLenum type, size_t capacity, GLenum usage);
+            Vbo(OpenGLWrapper& openGLWrapper, GLenum type, size_t capacity, GLenum usage);
             ~Vbo();
 
             /**
@@ -95,8 +97,8 @@ namespace TrenchBroom {
                 const GLvoid* ptr = static_cast<const GLvoid*>(array);
                 const GLintptr offset = static_cast<GLintptr>(address);
                 const GLsizeiptr sizei = static_cast<GLsizeiptr>(size);
-                glAssert(glBindBuffer(m_type, m_bufferId));
-                glAssert(glBufferSubData(m_type, offset, sizei, ptr));
+                m_openGLWrapper.glBindBuffer(m_type, m_bufferId);
+                m_openGLWrapper.glBufferSubData(m_type, offset, sizei, ptr);
 
                 return size;
             }

@@ -26,7 +26,7 @@
 namespace TrenchBroom {
     namespace Renderer {
         class RenderBatch;
-        class RenderContext;
+        class RenderState;
 
         class SelectionBoundsRenderer {
         private:
@@ -38,13 +38,13 @@ namespace TrenchBroom {
         public:
             SelectionBoundsRenderer(const vm::bbox3& bounds);
 
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private:
-            void renderBounds(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderSize(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderSize2D(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderSize3D(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderMinMax(RenderContext& renderContext, RenderBatch& renderBatch);
+            void renderBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSize(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSize2D(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSize3D(RenderState& renderState, RenderBatch& renderBatch);
+            void renderMinMax(RenderState& renderState, RenderBatch& renderBatch);
         };
     }
 }

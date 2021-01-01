@@ -39,12 +39,12 @@ namespace TrenchBroom {
             return m_array.prepared();
         }
 
-        void Sphere::prepare(VboManager& vboManager) {
-            m_array.prepare(vboManager);
+        void Sphere::prepare(RenderContext& renderContext) {
+            m_array.prepare(renderContext);
         }
 
-        void Sphere::render() {
-            m_array.render(PrimType::Triangles);
+        void Sphere::render(RenderState& renderState) {
+            m_array.render(renderState, PrimType::Triangles);
         }
     }
 }

@@ -25,6 +25,7 @@
 #include "Renderer/FontManager.h"
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderUtils.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Shaders.h"
@@ -62,29 +63,29 @@ namespace TrenchBroom {
         m_minZoomFactor(minZoomFactor),
         m_inset(inset) {}
 
-        void TextRenderer::renderString(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position) {
-            renderString(renderContext, textColor, backgroundColor, string, position, false);
+        void TextRenderer::renderString(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position) {
+            renderString(renderState, textColor, backgroundColor, string, position, false);
         }
 
-        void TextRenderer::renderStringOnTop(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position) {
-            renderString(renderContext, textColor, backgroundColor, string, position, true);
+        void TextRenderer::renderStringOnTop(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position) {
+            renderString(renderState, textColor, backgroundColor, string, position, true);
         }
 
-        void TextRenderer::renderString(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position, const bool onTop) {
+        void TextRenderer::renderString(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position, const bool onTop) {
 
-            const Camera& camera = renderContext.camera();
+            const Camera& camera = renderState.camera();
             const float distance = camera.perpendicularDistanceTo(position.position(camera));
             if (distance <= 0.0f)
                 return;
 
-            if (!isVisible(renderContext, string, position, distance, onTop))
+            if (!isVisible(renderState, string, position, distance, onTop))
                 return;
 
-            FontManager& fontManager = renderContext.fontManager();
+            FontManager& fontManager = renderState.fontManager();
             TextureFont& font = fontManager.font(m_fontDescriptor);
 
             std::vector<vm::vec2f> vertices = font.quads(string, true);
-            const float alphaFactor = computeAlphaFactor(renderContext, distance, onTop);
+            const float alphaFactor = computeAlphaFactor(renderState, distance, onTop);
             const vm::vec2f size = font.measure(string);
             const vm::vec3f offset = position.offset(camera, size);
 
@@ -98,35 +99,35 @@ namespace TrenchBroom {
                                           Color(backgroundColor, alphaFactor * backgroundColor.a())));
         }
 
-        bool TextRenderer::isVisible(RenderContext& renderContext, const AttrString& string, const TextAnchor& position, const float distance, const bool onTop) const {
+        bool TextRenderer::isVisible(RenderState& renderState, const AttrString& string, const TextAnchor& position, const float distance, const bool onTop) const {
             if (!onTop) {
-                if (renderContext.render3D() && distance > m_maxViewDistance)
+                if (renderState.render3D() && distance > m_maxViewDistance)
                     return false;
-                if (renderContext.render2D() && renderContext.camera().zoom() < m_minZoomFactor)
+                if (renderState.render2D() && renderState.camera().zoom() < m_minZoomFactor)
                     return false;
             }
 
-            const Camera& camera = renderContext.camera();
+            const Camera& camera = renderState.camera();
             const Camera::Viewport& viewport = camera.viewport();
 
-            const vm::vec2f size = stringSize(renderContext, string);
+            const vm::vec2f size = stringSize(renderState, string);
             const vm::vec2f offset = vm::vec2f(position.offset(camera, size)) - m_inset;
             const vm::vec2f actualSize = size + 2.0f * m_inset;
 
             return viewport.contains(offset.x(), offset.y(), actualSize.x(), actualSize.y());
         }
 
-        float TextRenderer::computeAlphaFactor(const RenderContext& renderContext, const float distance, const bool onTop) const {
+        float TextRenderer::computeAlphaFactor(const RenderState& renderState, const float distance, const bool onTop) const {
             if (onTop)
                 return 1.0f;
 
-            if (renderContext.render3D()) {
+            if (renderState.render3D()) {
                 const float a = m_maxViewDistance - distance;
                 if (a > 128.0f)
                     return 1.0f;
                 return a / 128.0f;
             } else {
-                const float z = renderContext.camera().zoom();
+                const float z = renderState.camera().zoom();
                 const float d = z - m_minZoomFactor;
                 if (d > 0.3f)
                     return 1.0f;
@@ -140,18 +141,18 @@ namespace TrenchBroom {
             collection.rectVertexCount += roundedRect2DVertexCount(RectCornerSegments);
         }
 
-        vm::vec2f TextRenderer::stringSize(RenderContext& renderContext, const AttrString& string) const {
-            FontManager& fontManager = renderContext.fontManager();
+        vm::vec2f TextRenderer::stringSize(RenderState& renderState, const AttrString& string) const {
+            FontManager& fontManager = renderState.fontManager();
             TextureFont& font = fontManager.font(m_fontDescriptor);
             return round(font.measure(string));
         }
 
-        void TextRenderer::doPrepareVertices(VboManager& vboManager) {
-            prepare(m_entries, false, vboManager);
-            prepare(m_entriesOnTop, true, vboManager);
+        void TextRenderer::doPrepareVertices(RenderContext& renderContext) {
+            prepare(m_entries, false, renderContext);
+            prepare(m_entriesOnTop, true, renderContext);
         }
 
-        void TextRenderer::prepare(EntryCollection& collection, const bool onTop, VboManager& vboManager) {
+        void TextRenderer::prepare(EntryCollection& collection, const bool onTop, RenderContext& renderContext) {
             std::vector<TextVertex> textVertices;
             textVertices.reserve(collection.textVertexCount);
 
@@ -165,8 +166,8 @@ namespace TrenchBroom {
             collection.textArray = VertexArray::move(std::move(textVertices));
             collection.rectArray = VertexArray::move(std::move(rectVertices));
 
-            collection.textArray.prepare(vboManager);
-            collection.rectArray.prepare(vboManager);
+            collection.textArray.prepare(renderContext);
+            collection.rectArray.prepare(renderContext);
         }
 
         void TextRenderer::addEntry(const Entry& entry, const bool /* onTop */, std::vector<TextVertex>& textVertices, std::vector<RectVertex>& rectVertices) {
@@ -191,8 +192,8 @@ namespace TrenchBroom {
             }
         }
 
-        void TextRenderer::doRender(RenderContext& renderContext) {
-            const Camera::Viewport& viewport = renderContext.camera().viewport();
+        void TextRenderer::doRender(RenderState& renderState) {
+            const Camera::Viewport& viewport = renderState.camera().viewport();
             const vm::mat4x4f projection = vm::ortho_matrix(
                 0.0f, 1.0f,
                 static_cast<float>(viewport.x),
@@ -200,30 +201,30 @@ namespace TrenchBroom {
                 static_cast<float>(viewport.width),
                 static_cast<float>(viewport.y));
             const vm::mat4x4f view = vm::view_matrix(vm::vec3f::neg_z(), vm::vec3f::pos_y());
-            ReplaceTransformation ortho(renderContext.transformation(), projection, view);
+            ReplaceTransformation ortho(renderState.transformation(), projection, view);
 
-            render(m_entries, renderContext);
+            render(m_entries, renderState);
 
-            glAssert(glDisable(GL_DEPTH_TEST));
-            render(m_entriesOnTop, renderContext);
-            glAssert(glEnable(GL_DEPTH_TEST));
+            renderState.gl().glDisable(GL_DEPTH_TEST);
+            render(m_entriesOnTop, renderState);
+            renderState.gl().glEnable(GL_DEPTH_TEST);
         }
 
-        void TextRenderer::render(EntryCollection& collection, RenderContext& renderContext) {
-            FontManager& fontManager = renderContext.fontManager();
+        void TextRenderer::render(EntryCollection& collection, RenderState& renderState) {
+            FontManager& fontManager = renderState.fontManager();
             TextureFont& font = fontManager.font(m_fontDescriptor);
 
-            glAssert(glDisable(GL_TEXTURE_2D));
+            renderState.gl().glDisable(GL_TEXTURE_2D);
 
-            ActiveShader backgroundShader(renderContext.shaderManager(), Shaders::TextBackgroundShader);
-            collection.rectArray.render(PrimType::Triangles);
+            ActiveShader backgroundShader(renderState, Shaders::TextBackgroundShader);
+            collection.rectArray.render(renderState, PrimType::Triangles);
 
-            glAssert(glEnable(GL_TEXTURE_2D));
+            renderState.gl().glEnable(GL_TEXTURE_2D);
 
-            ActiveShader textShader(renderContext.shaderManager(), Shaders::ColoredTextShader);
+            ActiveShader textShader(renderState, Shaders::ColoredTextShader);
             textShader.set("Texture", 0);
             font.activate();
-            collection.textArray.render(PrimType::Quads);
+            collection.textArray.render(renderState, PrimType::Quads);
             font.deactivate();
         }
     }

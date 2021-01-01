@@ -108,18 +108,18 @@ namespace TrenchBroom {
             }
         }
 
-        void TexturedIndexRangeMap::render(VertexArray& vertexArray) {
+        void TexturedIndexRangeMap::render(RenderState& renderState, VertexArray& vertexArray) {
             DefaultTextureRenderFunc func;
-            render(vertexArray, func);
+            render(renderState, vertexArray, func);
         }
 
-        void TexturedIndexRangeMap::render(VertexArray& vertexArray, TextureRenderFunc& func) {
+        void TexturedIndexRangeMap::render(RenderState& renderState, VertexArray& vertexArray, TextureRenderFunc& func) {
             for (const auto& entry : *m_data) {
                 const auto* texture = entry.first;
                 const auto& indexArray = entry.second;
 
                 func.before(texture);
-                indexArray.render(vertexArray);
+                indexArray.render(renderState, vertexArray);
                 func.after(texture);
             }
         }

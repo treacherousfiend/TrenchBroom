@@ -51,7 +51,7 @@ namespace TrenchBroom {
             CHECK(texture.name() == name);
             CHECK(texture.width() == width);
             CHECK(texture.height() == height);
-            CHECK((GL_BGRA == texture.format() || GL_RGBA == texture.format()));
+            CHECK(GL_RGBA == texture.format());
             CHECK(texture.type() == Assets::TextureType::Opaque);
         }
 
@@ -86,7 +86,7 @@ namespace TrenchBroom {
             CHECK(texture.width() == w);
             CHECK(texture.height() == h);
             CHECK(texture.buffersIfUnprepared().size() == 1u);
-            CHECK((GL_BGRA == texture.format() || GL_RGBA == texture.format()));
+            CHECK(GL_RGBA == texture.format());
             CHECK(texture.type() == Assets::TextureType::Opaque);
 
             for (std::size_t y = 0; y < h; ++y) {
@@ -121,7 +121,7 @@ namespace TrenchBroom {
             CHECK(texture.width() == w);
             CHECK(texture.height() == h);
             CHECK(texture.buffersIfUnprepared().size() == 1u);
-            CHECK((GL_BGRA == texture.format() || GL_RGBA == texture.format()));
+            CHECK(GL_RGBA == texture.format());
             CHECK(texture.type() == Assets::TextureType::Masked);
 
             auto& mip0Data = texture.buffersIfUnprepared().at(0);

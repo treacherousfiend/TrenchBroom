@@ -23,6 +23,7 @@
 #include "Renderer/ActiveShader.h"
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/VboManager.h"
@@ -118,7 +119,7 @@ namespace TrenchBroom {
             leftPlane = vm::plane3f(position(), normalize(cross(up(), d)));
         }
 
-        void PerspectiveCamera::doRenderFrustum(RenderContext& renderContext, VboManager& vboManager, const float size, const Color& color) const {
+        void PerspectiveCamera::doRenderFrustum(RenderState& renderState, const float size, const Color& color) const {
             using Vertex = GLVertexTypes::P3C4::Vertex;
             std::vector<Vertex> triangleVertices;
             std::vector<Vertex> lineVertices;
@@ -147,12 +148,12 @@ namespace TrenchBroom {
             auto triangleArray = VertexArray::ref(triangleVertices);
             auto lineArray = VertexArray::ref(lineVertices);
 
-            triangleArray.prepare(vboManager);
-            lineArray.prepare(vboManager);
+            triangleArray.prepare(renderState.renderContext());
+            lineArray.prepare(renderState.renderContext());
 
-            ActiveShader shader(renderContext.shaderManager(), Shaders::VaryingPCShader);
-            triangleArray.render(PrimType::TriangleFan);
-            lineArray.render(PrimType::Lines);
+            ActiveShader shader(renderState, Shaders::VaryingPCShader);
+            triangleArray.render(renderState, PrimType::TriangleFan);
+            lineArray.render(renderState, PrimType::Lines);
         }
 
         float PerspectiveCamera::doPickFrustum(const float size, const vm::ray3f& ray) const {

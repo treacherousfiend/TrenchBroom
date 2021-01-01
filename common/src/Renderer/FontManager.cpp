@@ -26,8 +26,9 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        FontManager::FontManager() :
-        m_factory(std::make_unique<FreeTypeFontFactory>()) {}
+        FontManager::FontManager(OpenGLWrapper& openGLWrapper) {
+            m_factory = std::make_unique<FreeTypeFontFactory>(openGLWrapper);
+        }
 
         FontManager::~FontManager() = default;
 

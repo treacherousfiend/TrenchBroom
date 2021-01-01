@@ -21,7 +21,7 @@
 
 #include "Ensure.h"
 #include "Renderer/Renderable.h"
-#include "Renderer/VboManager.h"
+#include "Renderer/RenderContext.h"
 
 #include <kdl/vector_utils.h>
 
@@ -31,22 +31,22 @@ namespace TrenchBroom {
         private:
             IndexedRenderable* m_wrappee;
         public:
-            IndexedRenderableWrapper(VboManager&, IndexedRenderable* wrappee) :
+            IndexedRenderableWrapper(RenderContext& /* renderContext */, IndexedRenderable* wrappee) :
             m_wrappee(wrappee) {
                 ensure(m_wrappee != nullptr, "wrappee is null");
             }
         private:
-            void prepareVerticesAndIndices(VboManager& vboManager) override {
-                m_wrappee->prepareVerticesAndIndices(vboManager);
+            void prepareVerticesAndIndices(RenderContext& renderContext) override {
+                m_wrappee->prepareVerticesAndIndices(renderContext);
             }
 
-            void doRender(RenderContext& renderContext) override {
-                m_wrappee->render(renderContext);
+            void doRender(RenderState& renderState) override {
+                m_wrappee->render(renderState);
             }
         };
 
-        RenderBatch::RenderBatch(VboManager& vboManager) :
-        m_vboManager(vboManager) {}
+        RenderBatch::RenderBatch(RenderContext& renderContext) :
+        m_renderContext(renderContext) {}
 
         RenderBatch::~RenderBatch() {
             kdl::vec_clear_and_delete(m_oneshots);
@@ -63,7 +63,7 @@ namespace TrenchBroom {
         }
 
         void RenderBatch::add(IndexedRenderable* renderable) {
-            IndexedRenderableWrapper* wrapper = new IndexedRenderableWrapper(m_vboManager, renderable);
+            IndexedRenderableWrapper* wrapper = new IndexedRenderableWrapper(m_renderContext, renderable);
             doAdd(wrapper);
             m_indexedRenderables.push_back(wrapper);
         }
@@ -80,16 +80,16 @@ namespace TrenchBroom {
         }
 
         void RenderBatch::addOneShot(IndexedRenderable* renderable) {
-            IndexedRenderableWrapper* wrapper = new IndexedRenderableWrapper(m_vboManager, renderable);
+            IndexedRenderableWrapper* wrapper = new IndexedRenderableWrapper(m_renderContext, renderable);
 
             doAdd(wrapper);
             m_indexedRenderables.push_back(wrapper);
             m_oneshots.push_back(renderable);
         }
 
-        void RenderBatch::render(RenderContext& renderContext) {
+        void RenderBatch::render(RenderState& renderState) {
             prepareRenderables();
-            renderRenderables(renderContext);
+            renderRenderables(renderState);
         }
 
         void RenderBatch::doAdd(Renderable* renderable) {
@@ -99,16 +99,16 @@ namespace TrenchBroom {
 
         void RenderBatch::prepareRenderables() {
             for (DirectRenderable* renderable : m_directRenderables) {
-                renderable->prepareVertices(m_vboManager);
+                renderable->prepareVertices(m_renderContext);
             }
             for (IndexedRenderable* renderable : m_indexedRenderables) {
-                renderable->prepareVerticesAndIndices(m_vboManager);
+                renderable->prepareVerticesAndIndices(m_renderContext);
             }
         }
 
-        void RenderBatch::renderRenderables(RenderContext& renderContext) {
+        void RenderBatch::renderRenderables(RenderState& renderState) {
             for (Renderable* renderable : m_batch)
-                renderable->render(renderContext);
+                renderable->render(renderState);
         }
     }
 }

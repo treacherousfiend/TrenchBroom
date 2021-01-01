@@ -31,9 +31,11 @@
 #include "Model/WorldNode.h"
 #include "Renderer/ActiveShader.h"
 #include "Renderer/Camera.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Shaders.h"
 #include "View/MapDocument.h"
@@ -69,7 +71,7 @@ namespace TrenchBroom {
             invalidate();
         }
 
-        void EntityLinkRenderer::render(RenderContext&, RenderBatch& renderBatch) {
+        void EntityLinkRenderer::render(RenderState& /* renderState */, RenderBatch& renderBatch) {
             renderBatch.add(this);
         }
 
@@ -77,51 +79,51 @@ namespace TrenchBroom {
             m_valid = false;
         }
 
-        void EntityLinkRenderer::doPrepareVertices(VboManager& vboManager) {
+        void EntityLinkRenderer::doPrepareVertices(RenderContext& renderContext) {
             if (!m_valid) {
                 validate();
 
                 // Upload the VBO's
-                m_entityLinks.prepare(vboManager);
-                m_entityLinkArrows.prepare(vboManager);
+                m_entityLinks.prepare(renderContext);
+                m_entityLinkArrows.prepare(renderContext);
             }
         }
 
-        void EntityLinkRenderer::doRender(RenderContext& renderContext) {
+        void EntityLinkRenderer::doRender(RenderState& renderState) {
             assert(m_valid);
-            renderLines(renderContext);
-            renderArrows(renderContext);
+            renderLines(renderState);
+            renderArrows(renderState);
         }
 
-        void EntityLinkRenderer::renderLines(RenderContext& renderContext) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::EntityLinkShader);
-            shader.set("CameraPosition", renderContext.camera().position());
-            shader.set("IsOrtho", renderContext.camera().orthographicProjection());
+        void EntityLinkRenderer::renderLines(RenderState& renderState) {
+            ActiveShader shader(renderState, Shaders::EntityLinkShader);
+            shader.set("CameraPosition", renderState.camera().position());
+            shader.set("IsOrtho", renderState.camera().orthographicProjection());
             shader.set("MaxDistance", 6000.0f);
 
-            glAssert(glDisable(GL_DEPTH_TEST));
+            renderState.gl().glDisable(GL_DEPTH_TEST);
             shader.set("Alpha", 0.4f);
-            m_entityLinks.render(PrimType::Lines);
+            m_entityLinks.render(renderState, PrimType::Lines);
 
-            glAssert(glEnable(GL_DEPTH_TEST));
+            renderState.gl().glEnable(GL_DEPTH_TEST);
             shader.set("Alpha", 1.0f);
-            m_entityLinks.render(PrimType::Lines);
+            m_entityLinks.render(renderState, PrimType::Lines);
         }
 
-        void EntityLinkRenderer::renderArrows(RenderContext& renderContext) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::EntityLinkArrowShader);
-            shader.set("CameraPosition", renderContext.camera().position());
-            shader.set("IsOrtho", renderContext.camera().orthographicProjection());
+        void EntityLinkRenderer::renderArrows(RenderState& renderState) {
+            ActiveShader shader(renderState, Shaders::EntityLinkArrowShader);
+            shader.set("CameraPosition", renderState.camera().position());
+            shader.set("IsOrtho", renderState.camera().orthographicProjection());
             shader.set("MaxDistance", 6000.0f);
-            shader.set("Zoom", renderContext.camera().zoom());
+            shader.set("Zoom", renderState.camera().zoom());
 
-            glAssert(glDisable(GL_DEPTH_TEST));
+            renderState.gl().glDisable(GL_DEPTH_TEST);
             shader.set("Alpha", 0.4f);
-            m_entityLinkArrows.render(PrimType::Lines);
+            m_entityLinkArrows.render(renderState, PrimType::Lines);
 
-            glAssert(glEnable(GL_DEPTH_TEST));
+            renderState.gl().glEnable(GL_DEPTH_TEST);
             shader.set("Alpha", 1.0f);
-            m_entityLinkArrows.render(PrimType::Lines);
+            m_entityLinkArrows.render(renderState, PrimType::Lines);
         }
 
         void EntityLinkRenderer::validate() {

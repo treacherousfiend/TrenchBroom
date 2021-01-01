@@ -31,8 +31,10 @@ namespace TrenchBroom {
     }
 
     namespace Renderer {
-        void glSetEdgeOffset(double f);
-        void glResetEdgeOffset();
+        class OpenGLWrapper;
+
+        void glSetEdgeOffset(OpenGLWrapper& openGLWrapper, float f);
+        void glResetEdgeOffset(OpenGLWrapper& openGLWrapper);
 
         void coordinateSystemVerticesX(const vm::bbox3f& bounds, vm::vec3f& start, vm::vec3f& end);
         void coordinateSystemVerticesY(const vm::bbox3f& bounds, vm::vec3f& start, vm::vec3f& end);

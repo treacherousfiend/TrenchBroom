@@ -266,13 +266,13 @@ namespace TrenchBroom {
              */
             void setShowHiddenBrushes(bool showHiddenBrushes);
         public: // rendering
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
+            void renderOpaque(RenderState& renderState, RenderBatch& renderBatch);
+            void renderTransparent(RenderState& renderState, RenderBatch& renderBatch);
         private:
-            void renderOpaqueFaces(RenderBatch& renderBatch);
-            void renderTransparentFaces(RenderBatch& renderBatch);
-            void renderEdges(RenderBatch& renderBatch);
+            void renderOpaqueFaces(RenderState& renderState, RenderBatch& renderBatch);
+            void renderTransparentFaces(RenderState& renderState, RenderBatch& renderBatch);
+            void renderEdges(RenderState& renderState, RenderBatch& renderBatch);
 
         public:
             /**

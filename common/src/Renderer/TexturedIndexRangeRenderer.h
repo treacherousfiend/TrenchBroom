@@ -31,7 +31,8 @@ namespace TrenchBroom {
     }
 
     namespace Renderer {
-        class VboManager;
+        class RenderContext;
+        class RenderState;
         class TextureRenderFunc;
 
         class TexturedRenderer {
@@ -40,9 +41,9 @@ namespace TrenchBroom {
 
             virtual bool empty() const = 0;
 
-            virtual void prepare(VboManager& vboManager) = 0;
-            virtual void render() = 0;
-            virtual void render(TextureRenderFunc& func) = 0;
+            virtual void prepare(RenderContext& renderContext) = 0;
+            virtual void render(RenderState& renderState) = 0;
+            virtual void render(RenderState& renderState, TextureRenderFunc& func) = 0;
         };
 
         class TexturedIndexRangeRenderer : public TexturedRenderer {
@@ -57,9 +58,9 @@ namespace TrenchBroom {
 
             bool empty() const override;
 
-            void prepare(VboManager& vboManager) override;
-            void render() override;
-            void render(TextureRenderFunc& func) override;
+            void prepare(RenderContext& renderContext) override;
+            void render(RenderState& renderState) override;
+            void render(RenderState& renderState, TextureRenderFunc& func) override;
         };
 
         class MultiTexturedIndexRangeRenderer : public TexturedRenderer {
@@ -71,9 +72,9 @@ namespace TrenchBroom {
 
             bool empty() const override;
 
-            void prepare(VboManager& vboManager) override;
-            void render() override;
-            void render(TextureRenderFunc& func) override;
+            void prepare(RenderContext& renderContext) override;
+            void render(RenderState& renderState) override;
+            void render(RenderState& renderState, TextureRenderFunc& func) override;
         };
     }
 }

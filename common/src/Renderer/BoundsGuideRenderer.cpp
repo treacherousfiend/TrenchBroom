@@ -19,7 +19,6 @@
 
 #include "BoundsGuideRenderer.h"
 
-
 #include <kdl/memory_utils.h>
 
 #include <vecmath/bbox.h>
@@ -74,12 +73,12 @@ namespace TrenchBroom {
             m_spikeRenderer.add(vm::ray3(m_bounds.corner(vm::bbox3::Corner::max, vm::bbox3::Corner::max, vm::bbox3::Corner::max), vm::vec3::pos_z()), SpikeLength, document);
         }
 
-        void BoundsGuideRenderer::doPrepareVertices(VboManager& vboManager) {
-            m_spikeRenderer.prepareVertices(vboManager);
+        void BoundsGuideRenderer::doPrepareVertices(RenderContext& renderContext) {
+            m_spikeRenderer.prepareVertices(renderContext);
         }
 
-        void BoundsGuideRenderer::doRender(RenderContext& renderContext) {
-            m_spikeRenderer.render(renderContext);
+        void BoundsGuideRenderer::doRender(RenderState& renderState) {
+            m_spikeRenderer.render(renderState);
         }
     }
 }

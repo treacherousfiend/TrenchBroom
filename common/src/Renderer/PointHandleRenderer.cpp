@@ -24,9 +24,9 @@
 #include "Renderer/ActiveShader.h"
 #include "Renderer/Camera.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
-#include "Renderer/VboManager.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/vec.h>
@@ -46,13 +46,13 @@ namespace TrenchBroom {
             m_highlights[color].push_back(position);
         }
 
-        void PointHandleRenderer::doPrepareVertices(VboManager& vboManager) {
-            m_handle.prepare(vboManager);
-            m_highlight.prepare(vboManager);
+        void PointHandleRenderer::doPrepareVertices(RenderContext& renderContext) {
+            m_handle.prepare(renderContext);
+            m_highlight.prepare(renderContext);
         }
 
-        void PointHandleRenderer::doRender(RenderContext& renderContext) {
-            const Camera& camera = renderContext.camera();
+        void PointHandleRenderer::doRender(RenderState& renderState) {
+            const Camera& camera = renderState.camera();
             const Camera::Viewport& viewport = camera.viewport();
             const vm::mat4x4f projection = vm::ortho_matrix(
                 0.0f, 1.0f,
@@ -61,32 +61,32 @@ namespace TrenchBroom {
                 static_cast<float>(viewport.width),
                 static_cast<float>(viewport.y));
             const vm::mat4x4f view = vm::view_matrix(vm::vec3f::neg_z(), vm::vec3f::pos_y());
-            ReplaceTransformation ortho(renderContext.transformation(), projection, view);
+            ReplaceTransformation ortho(renderState.transformation(), projection, view);
 
-            if (renderContext.render3D()) {
+            if (renderState.render3D()) {
                 // Un-occluded handles: use depth test, draw fully opaque
-                renderHandles(renderContext, m_pointHandles, m_handle, 1.0f);
-                renderHandles(renderContext, m_highlights, m_highlight, 1.0f);
+                renderHandles(renderState, m_pointHandles, m_handle, 1.0f);
+                renderHandles(renderState, m_highlights, m_highlight, 1.0f);
 
                 // Occluded handles: don't use depth test, but draw translucent
-                glAssert(glDisable(GL_DEPTH_TEST));
-                renderHandles(renderContext, m_pointHandles, m_handle, 0.33f);
-                renderHandles(renderContext, m_highlights, m_highlight, 0.33f);
-                glAssert(glEnable(GL_DEPTH_TEST));
+                renderState.gl().glDisable(GL_DEPTH_TEST);
+                renderHandles(renderState, m_pointHandles, m_handle, 0.33f);
+                renderHandles(renderState, m_highlights, m_highlight, 0.33f);
+                renderState.gl().glEnable(GL_DEPTH_TEST);
             } else {
                 // In 2D views, render fully opaque without depth test
-                glAssert(glDisable(GL_DEPTH_TEST));
-                renderHandles(renderContext, m_pointHandles, m_handle, 1.0f);
-                renderHandles(renderContext, m_highlights, m_highlight, 1.0f);
-                glAssert(glEnable(GL_DEPTH_TEST));
+                renderState.gl().glDisable(GL_DEPTH_TEST);
+                renderHandles(renderState, m_pointHandles, m_handle, 1.0f);
+                renderHandles(renderState, m_highlights, m_highlight, 1.0f);
+                renderState.gl().glEnable(GL_DEPTH_TEST);
             }
 
             clear();
         }
 
-        void PointHandleRenderer::renderHandles(RenderContext& renderContext, const HandleMap& map, Circle& circle, const float opacity) {
-            const Camera& camera = renderContext.camera();
-            ActiveShader shader(renderContext.shaderManager(), Shaders::HandleShader);
+        void PointHandleRenderer::renderHandles(RenderState& renderState, const HandleMap& map, Circle& circle, const float opacity) {
+            const Camera& camera = renderState.camera();
+            ActiveShader shader(renderState, Shaders::HandleShader);
 
             for (const auto& entry : map) {
                 const Color color = mixAlpha(entry.first, opacity);
@@ -96,13 +96,13 @@ namespace TrenchBroom {
                     vm::vec3f nudgeTowardsCamera;
 
                     // In 3D view, nudge towards camera by the handle radius, to prevent lines (brush edges, etc.) from clipping into the handle
-                    if (renderContext.render3D()) {
+                    if (renderState.render3D()) {
                         nudgeTowardsCamera = vm::normalize(camera.position() - position) * pref(Preferences::HandleRadius);
                     }
 
                     const vm::vec3f offset = camera.project(position + nudgeTowardsCamera) * vm::vec3f(1.0f, 1.0f, -1.0f);
-                    MultiplyModelMatrix translate(renderContext.transformation(), vm::translation_matrix(offset));
-                    circle.render();
+                    MultiplyModelMatrix translate(renderState.transformation(), vm::translation_matrix(offset));
+                    circle.render(renderState);
                 }
             }
         }

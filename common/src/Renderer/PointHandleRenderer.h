@@ -31,7 +31,7 @@ namespace TrenchBroom {
     namespace Renderer {
         class ActiveShader;
         class RenderContext;
-        class VboManager;
+        class RenderState;
 
         class PointHandleRenderer : public DirectRenderable {
         private:
@@ -48,9 +48,9 @@ namespace TrenchBroom {
             void addPoint(const Color& color, const vm::vec3f& position);
             void addHighlight(const Color& color, const vm::vec3f& position);
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
-            void renderHandles(RenderContext& renderContext, const HandleMap& map, Circle& circle, float opacity);
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
+            void renderHandles(RenderState& renderState, const HandleMap& map, Circle& circle, float opacity);
 
             void clear();
         };

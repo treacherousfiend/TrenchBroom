@@ -34,6 +34,7 @@ namespace TrenchBroom {
     namespace Renderer {
         class AttrString;
         class RenderContext;
+        class RenderState;
         class TextAnchor;
 
         class TextRenderer : public DirectRenderable {
@@ -80,24 +81,24 @@ namespace TrenchBroom {
         public:
             explicit TextRenderer(const FontDescriptor& fontDescriptor, float maxViewDistance = DefaultMaxViewDistance, float minZoomFactor = DefaultMinZoomFactor, const vm::vec2f& inset = DefaultInset);
 
-            void renderString(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position);
-            void renderStringOnTop(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position);
+            void renderString(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position);
+            void renderStringOnTop(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position);
         private:
-            void renderString(RenderContext& renderContext, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position, bool onTop);
+            void renderString(RenderState& renderState, const Color& textColor, const Color& backgroundColor, const AttrString& string, const TextAnchor& position, bool onTop);
 
-            bool isVisible(RenderContext& renderContext, const AttrString& string, const TextAnchor& position, float distance, bool onTop) const;
-            float computeAlphaFactor(const RenderContext& renderContext, float distance, bool onTop) const;
+            bool isVisible(RenderState& renderState, const AttrString& string, const TextAnchor& position, float distance, bool onTop) const;
+            float computeAlphaFactor(const RenderState& renderState, float distance, bool onTop) const;
             void addEntry(EntryCollection& collection, const Entry& entry);
 
-            vm::vec2f stringSize(RenderContext& renderContext, const AttrString& string) const;
+            vm::vec2f stringSize(RenderState& renderState, const AttrString& string) const;
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void prepare(EntryCollection& collection, bool onTop, VboManager& vboManager);
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void prepare(EntryCollection& collection, bool onTop, RenderContext& renderContext);
 
             void addEntry(const Entry& entry, bool onTop, std::vector<TextVertex>& textVertices, std::vector<RectVertex>& rectVertices);
 
-            void doRender(RenderContext& renderContext) override;
-            void render(EntryCollection& collection, RenderContext& renderContext);
+            void doRender(RenderState& renderState) override;
+            void render(EntryCollection& collection, RenderState& renderState);
 
             void clear();
         };

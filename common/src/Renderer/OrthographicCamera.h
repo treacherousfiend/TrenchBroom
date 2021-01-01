@@ -43,7 +43,7 @@ namespace TrenchBroom {
             vm::ray3f doGetPickRay(const vm::vec3f& point) const override;
             void doComputeFrustumPlanes(vm::plane3f& topPlane, vm::plane3f& rightPlane, vm::plane3f& bottomPlane, vm::plane3f& leftPlane) const override;
 
-            void doRenderFrustum(RenderContext& renderContext, VboManager& vboManager, float size, const Color& color) const override;
+            void doRenderFrustum(RenderState& renderState, float size, const Color& color) const override;
             float doPickFrustum(float size, const vm::ray3f& ray) const override;
             float doGetPerspectiveScalingFactor(const vm::vec3f& position) const override;
             void doUpdateZoom() override;

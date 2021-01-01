@@ -21,6 +21,8 @@
 #include "Assets/TextureBuffer.h"
 #include "Assets/TextureCollection.h"
 #include "Renderer/GL.h"
+#include "Renderer/OpenGLWrapper.h"
+#include "Renderer/RenderContext.h"
 
 #include <algorithm> // for std::max
 #include <cassert>
@@ -38,6 +40,7 @@ namespace TrenchBroom {
         m_type(type),
         m_culling(TextureCulling::CullDefault),
         m_blendFunc{TextureBlendFunc::Enable::UseDefault, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
+        m_renderContext(nullptr),
         m_textureId(0) {
             assert(m_width > 0);
             assert(m_height > 0);
@@ -56,6 +59,7 @@ namespace TrenchBroom {
         m_type(type),
         m_culling(TextureCulling::CullDefault),
         m_blendFunc{TextureBlendFunc::Enable::UseDefault, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
+        m_renderContext(nullptr),
         m_textureId(0),
         m_buffers(std::move(buffers)) {
             assert(m_width > 0);
@@ -81,9 +85,14 @@ namespace TrenchBroom {
         m_type(type),
         m_culling(TextureCulling::CullDefault),
         m_blendFunc{TextureBlendFunc::Enable::UseDefault, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA},
+        m_renderContext(nullptr), 
         m_textureId(0) {}
 
-        Texture::~Texture() = default;
+        Texture::~Texture() {
+            if (m_textureId != 0) {
+                m_renderContext->gl().glDeleteTextures(1, &m_texureId);
+            }
+        }
 
         TextureType Texture::selectTextureType(const bool masked) {
             if (masked) {
@@ -184,34 +193,46 @@ namespace TrenchBroom {
             return m_textureId != 0;
         }
 
-        void Texture::prepare(const GLuint textureId, const int minFilter, const int magFilter) {
-            assert(textureId > 0);
+        void Texture::prepare(Renderer::RenderContext& renderContext, const int minFilter, const int magFilter) {
             assert(m_textureId == 0);
 
-            if (!m_buffers.empty()) {
-                glAssert(glPixelStorei(GL_UNPACK_SWAP_BYTES, false));
-                glAssert(glPixelStorei(GL_UNPACK_LSB_FIRST, false));
-                glAssert(glPixelStorei(GL_UNPACK_ROW_LENGTH, 0));
-                glAssert(glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0));
-                glAssert(glPixelStorei(GL_UNPACK_SKIP_ROWS, 0));
-                glAssert(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
+            if (m_renderContext != nullptr) {
+                ensure(m_renderContext == &renderContext, "mismatches render context");
+            } else {
+                m_renderContext = &renderContext;
+            }
 
-                glAssert(glBindTexture(GL_TEXTURE_2D, textureId));
-                glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter));
-                glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter));
-                glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT));
-                glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT));
+            if (!m_buffers.empty()) {
+                Renderer::OpenGLWrapper& gl = m_renderContext->gl();
+
+                gl.glGenTextures(1, &m_textureId);
+
+                // GLESTODO: Are these needed for some supported platforms?
+                // gl.glPixelStorei(GL_UNPACK_SWAP_BYTES, false);
+                // gl.glPixelStorei(GL_UNPACK_LSB_FIRST, false);
+                gl.glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+                gl.glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+                gl.glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+                gl.glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+                gl.glBindTexture(GL_TEXTURE_2D, m_textureId);
+                gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+                gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+                gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+                gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
                 if (m_type == TextureType::Masked) {
                     // masked textures don't work well with automatic mipmaps, so we force GL_NEAREST filtering and don't generate any
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_FALSE));
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+                    // GLESTODO: not sure what is need if anything for this case
+                    // gl.glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_FALSE);
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                 } else if (m_buffers.size() == 1) {
                     // generate mipmaps if we don't have any
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE));
+                    // gl.glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+                    gl.glGenerateMipmap(GL_TEXTURE_2D);
                 } else {
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(m_buffers.size() - 1)));
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, static_cast<GLint>(m_buffers.size() - 1));
                 }
 
                 // Upload only the first mipmap for masked textures.
@@ -221,27 +242,27 @@ namespace TrenchBroom {
                     const auto mipSize = sizeAtMipLevel(m_width, m_height, j);
 
                     const GLvoid* data = reinterpret_cast<const GLvoid*>(m_buffers[j].data());
-                    glAssert(glTexImage2D(GL_TEXTURE_2D, static_cast<GLint>(j), GL_RGBA,
+                    gl.glTexImage2D(GL_TEXTURE_2D, static_cast<GLint>(j), GL_RGBA,
                                           static_cast<GLsizei>(mipSize.x()),
                                           static_cast<GLsizei>(mipSize.y()),
-                                          0, m_format, GL_UNSIGNED_BYTE, data));
+                                          0, m_format, GL_UNSIGNED_BYTE, data);
                 }
 
                 m_buffers.clear();
-                m_textureId = textureId;
             }
         }
 
         void Texture::setMode(const int minFilter, const int magFilter) {
             if (isPrepared()) {
+                Renderer::OpenGLWrapper& gl = m_renderContext->gl();
                 activate();
                 if (m_type == TextureType::Masked) {
                     // Force GL_NEAREST filtering for masked textures.
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
                 } else {
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter));
-                    glAssert(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter));
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+                    gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
                 }
                 deactivate();
             }
@@ -249,17 +270,18 @@ namespace TrenchBroom {
 
         void Texture::activate() const {
             if (isPrepared()) {
-                glAssert(glBindTexture(GL_TEXTURE_2D, m_textureId));
+                Renderer::OpenGLWrapper& gl = m_renderContext->gl();
+                gl.glBindTexture(GL_TEXTURE_2D, m_textureId);
 
                 switch (m_culling) {
                     case Assets::TextureCulling::CullNone:
-                        glAssert(glDisable(GL_CULL_FACE));
+                        gl.glDisable(GL_CULL_FACE);
                         break;
                     case Assets::TextureCulling::CullFront:
-                        glAssert(glCullFace(GL_FRONT));
+                        gl.glCullFace(GL_FRONT);
                         break;
                     case Assets::TextureCulling::CullBoth:
-                        glAssert(glCullFace(GL_FRONT_AND_BACK));
+                        gl.glCullFace(GL_FRONT_AND_BACK);
                         break;
                     case Assets::TextureCulling::CullDefault:
                     case Assets::TextureCulling::CullBack:
@@ -268,12 +290,12 @@ namespace TrenchBroom {
 
 
                 if (m_blendFunc.enable != TextureBlendFunc::Enable::UseDefault) {
-                    glAssert(glPushAttrib(GL_COLOR_BUFFER_BIT));
+                    // GLESTODO: gl.glPushAttrib(GL_COLOR_BUFFER_BIT);
                     if (m_blendFunc.enable == TextureBlendFunc::Enable::UseFactors) {
-                        glAssert(glBlendFunc(m_blendFunc.srcFactor, m_blendFunc.destFactor));
+                        gl.glBlendFunc(m_blendFunc.srcFactor, m_blendFunc.destFactor);
                     } else {
                         assert(m_blendFunc.enable == TextureBlendFunc::Enable::DisableBlend);
-                        glAssert(glDisable(GL_BLEND));
+                        gl.glDisable(GL_BLEND);
                     }
                 }
             }
@@ -281,26 +303,28 @@ namespace TrenchBroom {
 
         void Texture::deactivate() const {
             if (isPrepared()) {
+                Renderer::OpenGLWrapper& gl = m_renderContext->gl();
+                
                 if (m_blendFunc.enable != TextureBlendFunc::Enable::UseDefault) {
-                    glAssert(glPopAttrib());
+                    // GLESTODO: gl.glPopAttrib();
                 }
 
                 switch (m_culling) {
                     case Assets::TextureCulling::CullNone:
-                        glAssert(glEnable(GL_CULL_FACE));
+                        gl.glEnable(GL_CULL_FACE);
                         break;
                     case Assets::TextureCulling::CullFront:
-                        glAssert(glCullFace(GL_BACK));
+                        gl.glCullFace(GL_BACK);
                         break;
                     case Assets::TextureCulling::CullBoth:
-                        glAssert(glCullFace(GL_BACK));
+                        gl.glCullFace(GL_BACK);
                         break;
                     case Assets::TextureCulling::CullDefault:
                     case Assets::TextureCulling::CullBack:
                         break;
                 }
 
-                glAssert(glBindTexture(GL_TEXTURE_2D, 0));
+                gl.glBindTexture(GL_TEXTURE_2D, 0);
             }
         }
 

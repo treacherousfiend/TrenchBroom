@@ -24,6 +24,7 @@
 #include "Renderer/GL.h"
 #include "Renderer/GLVertexType.h"
 #include "Renderer/PrimType.h"
+#include "Renderer/RenderContext.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/VboManager.h"
 #include "Renderer/Vbo.h"
@@ -72,25 +73,25 @@ namespace TrenchBroom {
             VboType m_type;
             std::vector<T> m_snapshot;
             DirtyRangeTracker m_dirtyRange;
-            VboManager* m_vboManager;
+            RenderContext* m_renderContext;
             Vbo* m_vbo;
         private:
             void freeBlock() {
                 if (m_vbo != nullptr) {
-                    m_vboManager->destroyVbo(m_vbo);
+                    m_renderContext->vboManager().destroyVbo(m_vbo);
                     m_vbo = nullptr;
                 }
             }
 
-            void allocateBlock(VboManager& vboManager) {
-                if (m_vboManager != nullptr) {
-                    assert(m_vboManager == &vboManager);
+            void allocateBlock(RenderContext& renderContext) {
+                if (m_renderContext != nullptr) {
+                    assert(m_renderContext == &renderContext);
                 } else {
-                    m_vboManager = &vboManager;
+                    m_renderContext = &renderContext;
                 }
                 assert(m_vbo == nullptr);
 
-                m_vbo = m_vboManager->allocateVbo(m_type, m_snapshot.size() * sizeof(T), VboUsage::DynamicDraw);
+                m_vbo = m_renderContext->vboManager().allocateVbo(m_type, m_snapshot.size() * sizeof(T), VboUsage::DynamicDraw);
                 assert(m_vbo != nullptr);
 
                 m_vbo->writeElements(0, m_snapshot);
@@ -105,7 +106,7 @@ namespace TrenchBroom {
             m_type(type),
             m_snapshot(),
             m_dirtyRange(0),
-            m_vboManager(nullptr),
+            m_renderContext(nullptr),
             m_vbo(nullptr) {}
 
             /**
@@ -115,7 +116,7 @@ namespace TrenchBroom {
             m_type(type),
             m_snapshot(),
             m_dirtyRange(elements.size()),
-            m_vboManager(nullptr),
+            m_renderContext(nullptr),
             m_vbo(nullptr) {
 
                 const size_t elementsCount = elements.size();
@@ -156,7 +157,7 @@ namespace TrenchBroom {
                 return m_dirtyRange.clean();
             }
 
-            void prepare(VboManager& vboManager) {
+            void prepare(RenderContext& renderContext) {
                 if (empty()) {
                     assert(prepared());
                     return;
@@ -167,7 +168,7 @@ namespace TrenchBroom {
 
                 // first ever upload?
                 if (m_vbo == nullptr) {
-                    allocateBlock(vboManager);
+                    allocateBlock(renderContext);
                     assert(prepared());
                     return;
                 }
@@ -175,7 +176,7 @@ namespace TrenchBroom {
                 // resize?
                 if (m_dirtyRange.capacity() != (m_vbo->capacity() / sizeof(T))) {
                     freeBlock();
-                    allocateBlock(vboManager);
+                    allocateBlock(renderContext);
                     assert(prepared());
                     return;
                 }
@@ -223,7 +224,7 @@ namespace TrenchBroom {
              */
             explicit IndexHolder(std::vector<Index>& elements);
             void zeroRange(size_t offsetWithinBlock, size_t count);
-            void render(PrimType primType, size_t offset, size_t count) const;
+            void render(RenderState& renderState, PrimType primType, size_t offset, size_t count) const;
 
             static std::shared_ptr<IndexHolder> swap(std::vector<Index>& elements);
         };
@@ -259,9 +260,9 @@ namespace TrenchBroom {
              */
             void zeroElementsWithKey(AllocationTracker::Block* key);
 
-            void render(const PrimType primType) const;
+            void render(RenderState& renderState, const PrimType primType) const;
             bool prepared() const;
-            void prepare(VboManager& vboManager);
+            void prepare(RenderContext& renderContext);
 
             void setupIndices();
             void cleanupIndices();
@@ -270,9 +271,9 @@ namespace TrenchBroom {
         class VertexArrayInterface {
         public:
             virtual ~VertexArrayInterface() = 0;
-            virtual bool setupVertices() = 0;
-            virtual void prepareVertices(VboManager& vboManager) = 0;
-            virtual void cleanupVertices() = 0;
+            virtual bool setupVertices(RenderContext& renderContext) = 0;
+            virtual void prepareVertices(RenderContext& renderContext) = 0;
+            virtual void cleanupVertices(RenderContext& renderContext) = 0;
         };
 
         template<typename V>
@@ -286,19 +287,19 @@ namespace TrenchBroom {
             explicit VertexHolder(std::vector<V>& elements)
                     : VboHolder<V>(elements) {}
 
-            bool setupVertices() override {
+            bool setupVertices(RenderContext& renderContext) override {
                 ensure(VboHolder<V>::m_vbo != nullptr, "block is null");
                 VboHolder<V>::m_vbo->bind();
-                V::Type::setup(this->m_vboManager->shaderManager().currentProgram(), VboHolder<V>::m_vbo->offset());
+                V::Type::setup(renderContext.shaderManager().currentProgram(), VboHolder<V>::m_vbo->offset());
                 return true;
             }
 
-            void prepareVertices(VboManager& vboManager) override {
-                VboHolder<V>::prepare(vboManager);
+            void prepareVertices(RenderContext& renderContext) override {
+                VboHolder<V>::prepare(renderContext);
             }
 
-            void cleanupVertices() override {
-                V::Type::cleanup(this->m_vboManager->shaderManager().currentProgram());
+            void cleanupVertices(RenderContext& renderContext) override {
+                V::Type::cleanup(renderContext.shaderManager().currentProgram());
                 VboHolder<V>::m_vbo->unbind();
             }
 
@@ -334,12 +335,12 @@ namespace TrenchBroom {
             void deleteVerticesWithKey(AllocationTracker::Block* key);
 
             // setting up GL attributes
-            bool setupVertices();
-            void cleanupVertices();
+            bool setupVertices(RenderContext& renderContext);
+            void cleanupVertices(RenderContext& renderContext);
 
             // uploading the VBO
             bool prepared() const;
-            void prepare(VboManager& vboManager);
+            void prepare(RenderContext& renderContext);
         };
     }
 }

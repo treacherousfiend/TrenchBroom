@@ -25,15 +25,18 @@
 
 namespace TrenchBroom {
     namespace Renderer {
+        class RenderState;
         class ShaderConfig;
-        class ShaderManager;
 
         class ActiveShader {
         private:
             ShaderProgram& m_program;
+            RenderState& m_renderState;
         public:
-            ActiveShader(ShaderManager& shaderManager, const ShaderConfig& shaderConfig);
+            ActiveShader(RenderState& renderState, const ShaderConfig& shaderConfig);
             ~ActiveShader();
+
+            void applyModelTransform();
 
             template <class T>
             void set(const std::string& name, const T& value) {

@@ -47,22 +47,22 @@ namespace TrenchBroom {
             Compass();
             ~Compass() override;
 
-            void render(RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private: // implement Renderable interface
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
         private:
             void makeArrows();
             void makeBackground();
 
             vm::mat4x4f cameraRotationMatrix(const Camera& camera) const;
         protected:
-            void renderBackground(RenderContext& renderContext);
-            void renderSolidAxis(RenderContext& renderContext, const vm::mat4x4f& transformation, const Color& color);
-            void renderAxisOutline(RenderContext& renderContext, const vm::mat4x4f& transformation, const Color& color);
-            void renderAxis(RenderContext& renderContext, const vm::mat4x4f& transformation);
+            void renderBackground(RenderState& renderState);
+            void renderSolidAxis(RenderState& renderState, const vm::mat4x4f& transformation, const Color& color);
+            void renderAxisOutline(RenderState& renderState, const vm::mat4x4f& transformation, const Color& color);
+            void renderAxis(RenderState& renderState, const vm::mat4x4f& transformation);
         private:
-            virtual void doRenderCompass(RenderContext& renderContext, const vm::mat4x4f& cameraTransformation) = 0;
+            virtual void doRenderCompass(RenderState& renderState, const vm::mat4x4f& cameraTransformation) = 0;
         };
     }
 }

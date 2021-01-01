@@ -24,6 +24,7 @@
 #include "Renderer/IndexRangeRenderer.h"
 #include "Renderer/IndexRangeMapBuilder.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderUtils.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Shaders.h"
@@ -65,26 +66,26 @@ namespace TrenchBroom {
             return false;
         }
 
-        void PrimitiveRenderer::LineRenderAttributes::render(IndexRangeRenderer& renderer, ActiveShader& shader) const {
-            glAssert(glLineWidth(m_lineWidth));
+        void PrimitiveRenderer::LineRenderAttributes::render(RenderState& renderState, IndexRangeRenderer& renderer, ActiveShader& shader) const {
+            renderState.gl().glLineWidth(m_lineWidth);
             switch (m_occlusionPolicy) {
                 case PrimitiveRendererOcclusionPolicy::Hide:
                     shader.set("Color", m_color);
-                    renderer.render();
+                    renderer.render(renderState);
                     break;
                 case PrimitiveRendererOcclusionPolicy::Show:
-                    glAssert(glDisable(GL_DEPTH_TEST));
+                    renderState.gl().glDisable(GL_DEPTH_TEST);
                     shader.set("Color", m_color);
-                    renderer.render();
-                    glAssert(glEnable(GL_DEPTH_TEST));
+                    renderer.render(renderState);
+                    renderState.gl().glEnable(GL_DEPTH_TEST);
                     break;
                 case PrimitiveRendererOcclusionPolicy::Transparent:
-                    glAssert(glDisable(GL_DEPTH_TEST));
+                    renderState.gl().glDisable(GL_DEPTH_TEST);
                     shader.set("Color", Color(m_color, m_color.a() / 3.0f));
-                    renderer.render();
-                    glAssert(glEnable(GL_DEPTH_TEST));
+                    renderer.render(renderState);
+                    renderState.gl().glEnable(GL_DEPTH_TEST);
                     shader.set("Color", m_color);
-                    renderer.render();
+                    renderer.render(renderState);
                     break;
             }
         }
@@ -117,45 +118,48 @@ namespace TrenchBroom {
             return false;
         }
 
-        void PrimitiveRenderer::TriangleRenderAttributes::render(IndexRangeRenderer& renderer, ActiveShader& shader) const {
+        void PrimitiveRenderer::TriangleRenderAttributes::render(RenderState& renderState, IndexRangeRenderer& renderer, ActiveShader& shader) const {
             if (m_cullingPolicy == PrimitiveRendererCullingPolicy::ShowBackfaces) {
-                glAssert(glPushAttrib(GL_POLYGON_BIT))
-                glAssert(glDisable(GL_CULL_FACE))
-                glAssert(glPolygonMode(GL_FRONT_AND_BACK, GL_FILL))
+                // GLESTODO: verify if we can do without the push attrib call or if we need to query the current state
+                // renderState.gl().glPushAttrib(GL_POLYGON_BIT);
+                renderState.gl().glDisable(GL_CULL_FACE);
+                // GLESTODO: is this needed, or is disabling face culling enough?
+                // renderState.gl().glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             }
 
             // Disable depth writes if drawing something transparent
             if (m_color.a() < 1.0f) {
-                glAssert(glDepthMask(GL_FALSE))
+                renderState.gl().glDepthMask(GL_FALSE);
             }
 
             switch (m_occlusionPolicy) {
                 case PrimitiveRendererOcclusionPolicy::Hide:
                     shader.set("Color", m_color);
-                    renderer.render();
+                    renderer.render(renderState);
                     break;
                 case PrimitiveRendererOcclusionPolicy::Show:
-                    glAssert(glDisable(GL_DEPTH_TEST))
+                    renderState.gl().glDisable(GL_DEPTH_TEST);
                     shader.set("Color", m_color);
-                    renderer.render();
-                    glAssert(glEnable(GL_DEPTH_TEST))
+                    renderer.render(renderState);
+                    renderState.gl().glEnable(GL_DEPTH_TEST);
                     break;
                 case PrimitiveRendererOcclusionPolicy::Transparent:
-                    glAssert(glDisable(GL_DEPTH_TEST))
+                    renderState.gl().glDisable(GL_DEPTH_TEST);
                     shader.set("Color", Color(m_color, m_color.a() / 2.0f));
-                    renderer.render();
-                    glAssert(glEnable(GL_DEPTH_TEST))
+                    renderer.render(renderState);
+                    renderState.gl().glEnable(GL_DEPTH_TEST);
                     shader.set("Color", m_color);
-                    renderer.render();
+                    renderer.render(renderState);
                     break;
             }
 
             if (m_color.a() < 1.0f) {
-                glAssert(glDepthMask(GL_TRUE))
+                renderState.gl().glDepthMask(GL_TRUE);
             }
 
             if (m_cullingPolicy == PrimitiveRendererCullingPolicy::ShowBackfaces) {
-                glAssert(glPopAttrib())
+                // GLESTODO: verify if we can do without the push attrib call or if we need to restore the previous state
+                // renderState.gl().glPopAttrib();
             }
         }
 
@@ -240,52 +244,52 @@ namespace TrenchBroom {
             m_triangleMeshes[TriangleRenderAttributes(color, occlusionPolicy, cullingPolicy)].addTriangleStrip(Vertex::toList(vertices.size(), std::begin(vertices)));
         }
 
-        void PrimitiveRenderer::doPrepareVertices(VboManager& vboManager) {
-            prepareLines(vboManager);
-            prepareTriangles(vboManager);
+        void PrimitiveRenderer::doPrepareVertices(RenderContext& renderContext) {
+            prepareLines(renderContext);
+            prepareTriangles(renderContext);
         }
 
-        void PrimitiveRenderer::prepareLines(VboManager& vboManager) {
+        void PrimitiveRenderer::prepareLines(RenderContext& renderContext) {
             for (auto& entry : m_lineMeshes) {
                 const LineRenderAttributes& attributes = entry.first;
                 IndexRangeMapBuilder<Vertex::Type>& mesh = entry.second;
                 IndexRangeRenderer& renderer = m_lineMeshRenderers.insert(std::make_pair(attributes, IndexRangeRenderer(mesh))).first->second;
-                renderer.prepare(vboManager);
+                renderer.prepare(renderContext);
             }
         }
 
-        void PrimitiveRenderer::prepareTriangles(VboManager& vboManager) {
+        void PrimitiveRenderer::prepareTriangles(RenderContext& renderContext) {
             for (auto& entry : m_triangleMeshes) {
                 const TriangleRenderAttributes& attributes = entry.first;
                 IndexRangeMapBuilder<Vertex::Type>& mesh = entry.second;
                 IndexRangeRenderer& renderer = m_triangleMeshRenderers.insert(std::make_pair(attributes, IndexRangeRenderer(mesh))).first->second;
-                renderer.prepare(vboManager);
+                renderer.prepare(renderContext);
             }
         }
 
-        void PrimitiveRenderer::doRender(RenderContext& renderContext) {
-            renderLines(renderContext);
-            renderTriangles(renderContext);
+        void PrimitiveRenderer::doRender(RenderState& renderState) {
+            renderLines(renderState);
+            renderTriangles(renderState);
         }
 
-        void PrimitiveRenderer::renderLines(RenderContext& renderContext) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::VaryingPUniformCShader);
+        void PrimitiveRenderer::renderLines(RenderState& renderState) {
+            ActiveShader shader(renderState, Shaders::VaryingPUniformCShader);
 
             for (auto& entry : m_lineMeshRenderers) {
                 const LineRenderAttributes& attributes = entry.first;
                 IndexRangeRenderer& renderer = entry.second;
-                attributes.render(renderer, shader);
+                attributes.render(renderState, renderer, shader);
             }
-            glAssert(glLineWidth(1.0f))
+            renderState.gl().glLineWidth(1.0f);
         }
 
-        void PrimitiveRenderer::renderTriangles(RenderContext& renderContext) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::VaryingPUniformCShader);
+        void PrimitiveRenderer::renderTriangles(RenderState& renderState) {
+            ActiveShader shader(renderState, Shaders::VaryingPUniformCShader);
 
             for (auto& entry : m_triangleMeshRenderers) {
                 const TriangleRenderAttributes& attributes = entry.first;
                 IndexRangeRenderer& renderer = entry.second;
-                attributes.render(renderer, shader);
+                attributes.render(renderState, renderer, shader);
             }
         }
     }

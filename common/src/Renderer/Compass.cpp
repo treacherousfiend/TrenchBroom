@@ -23,17 +23,19 @@
 #include "Preferences.h"
 #include "Renderer/ActiveShader.h"
 #include "Renderer/Camera.h"
+#include "Renderer/GLVertex.h"
+#include "Renderer/GLVertexType.h"
+#include "Renderer/IndexRangeMapBuilder.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderUtils.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Transformation.h"
-#include "Renderer/IndexRangeMapBuilder.h"
-#include "Renderer/GLVertex.h"
 #include "Renderer/VertexArray.h"
-#include "Renderer/GLVertexType.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/vec.h>
@@ -59,39 +61,39 @@ namespace TrenchBroom {
 
         Compass::~Compass() = default;
 
-        void Compass::render(RenderBatch& renderBatch) {
+        void Compass::render(RenderState& /* renderState */, RenderBatch& renderBatch) {
             renderBatch.add(this);
         }
 
-        void Compass::doPrepareVertices(VboManager& vboManager) {
+        void Compass::doPrepareVertices(RenderContext& renderContext) {
             if (!m_prepared) {
-                m_arrowRenderer.prepare(vboManager);
-                m_backgroundRenderer.prepare(vboManager);
-                m_backgroundOutlineRenderer.prepare(vboManager);
+                m_arrowRenderer.prepare(renderContext);
+                m_backgroundRenderer.prepare(renderContext);
+                m_backgroundOutlineRenderer.prepare(renderContext);
                 m_prepared = true;
             }
         }
 
-        void Compass::doRender(RenderContext& renderContext) {
-            const auto& camera = renderContext.camera();
+        void Compass::doRender(RenderState& renderState) {
+            const auto& camera = renderState.camera();
             const auto& viewport = camera.viewport();
             const auto viewWidth = static_cast<float>(viewport.width);
             const auto viewHeight = static_cast<float>(viewport.height);
 
             const auto projection = vm::ortho_matrix(0.0f, 1000.0f, -viewWidth / 2.0f, viewHeight / 2.0f, viewWidth / 2.0f, -viewHeight / 2.0f);
             const auto view = vm::view_matrix(vm::vec3f::pos_y(), vm::vec3f::pos_z()) *vm::translation_matrix(500.0f * vm::vec3f::pos_y());
-            const ReplaceTransformation ortho(renderContext.transformation(), projection, view);
+            const ReplaceTransformation ortho(renderState.transformation(), projection, view);
 
             const auto translation = vm::translation_matrix(vm::vec3f(-viewWidth / 2.0f + 55.0f, 0.0f, -viewHeight / 2.0f + 55.0f));
             const auto scaling = vm::scaling_matrix(vm::vec3f::fill(2.0f));
             const auto compassTransformation = translation * scaling;
-            const MultiplyModelMatrix compass(renderContext.transformation(), compassTransformation);
+            const MultiplyModelMatrix compass(renderState.transformation(), compassTransformation);
             const auto cameraTransformation = cameraRotationMatrix(camera);
 
-            glAssert(glClear(GL_DEPTH_BUFFER_BIT))
-            renderBackground(renderContext);
-            glAssert(glClear(GL_DEPTH_BUFFER_BIT))
-            doRenderCompass(renderContext, cameraTransformation);
+            renderState.gl().glClear(GL_DEPTH_BUFFER_BIT);
+            renderBackground(renderState);
+            renderState.gl().glClear(GL_DEPTH_BUFFER_BIT);
+            doRenderCompass(renderState, cameraTransformation);
         }
 
         void Compass::makeArrows() {
@@ -174,19 +176,19 @@ namespace TrenchBroom {
             return inverseRotation;
         }
 
-        void Compass::renderBackground(RenderContext& renderContext) {
+        void Compass::renderBackground(RenderState& renderState) {
             PreferenceManager& prefs = PreferenceManager::instance();
 
-            const MultiplyModelMatrix rotate(renderContext.transformation(), vm::mat4x4f::rot_90_x_ccw());
-            ActiveShader shader(renderContext.shaderManager(), Shaders::CompassBackgroundShader);
+            const MultiplyModelMatrix rotate(renderState.transformation(), vm::mat4x4f::rot_90_x_ccw());
+            ActiveShader shader(renderState, Shaders::CompassBackgroundShader);
             shader.set("Color", prefs.get(Preferences::CompassBackgroundColor));
-            m_backgroundRenderer.render();
+            m_backgroundRenderer.render(renderState);
             shader.set("Color", prefs.get(Preferences::CompassBackgroundOutlineColor));
-            m_backgroundOutlineRenderer.render();
+            m_backgroundOutlineRenderer.render(renderState);
         }
 
-        void Compass::renderSolidAxis(RenderContext& renderContext, const vm::mat4x4f& transformation, const Color& color) {
-            ActiveShader shader(renderContext.shaderManager(), Shaders::CompassShader);
+        void Compass::renderSolidAxis(RenderState& renderState, const vm::mat4x4f& transformation, const Color& color) {
+            ActiveShader shader(renderState, Shaders::CompassShader);
             shader.set("CameraPosition", vm::vec3f(0.0f, 500.0f, 0.0f));
             shader.set("LightDirection", vm::normalize(vm::vec3f(0.0f, 0.5f, 1.0f)));
             shader.set("LightDiffuse", Color(1.0f, 1.0f, 1.0f, 1.0f));
@@ -198,26 +200,27 @@ namespace TrenchBroom {
             shader.set("MaterialAmbient", color);
             shader.set("MaterialSpecular", color);
 
-            renderAxis(renderContext, transformation);
+            renderAxis(renderState, transformation);
         }
 
-        void Compass::renderAxisOutline(RenderContext& renderContext, const vm::mat4x4f& transformation, const Color& color) {
-            glAssert(glDepthMask(GL_FALSE))
-            glAssert(glLineWidth(3.0f))
-            glAssert(glPolygonMode(GL_FRONT, GL_LINE))
+        void Compass::renderAxisOutline(RenderState& renderState, const vm::mat4x4f& transformation, const Color& color) {
+            renderState.gl().glDepthMask(GL_FALSE);
+            renderState.gl().glLineWidth(3.0f);
+            // GLESTODO: figure out what to do about wire frame rendering
+            // renderState.gl().glPolygonMode(GL_FRONT, GL_LINE);
 
-            ActiveShader shader(renderContext.shaderManager(), Shaders::CompassOutlineShader);
+            ActiveShader shader(renderState, Shaders::CompassOutlineShader);
             shader.set("Color", color);
-            renderAxis(renderContext, transformation);
+            renderAxis(renderState, transformation);
 
-            glAssert(glDepthMask(GL_TRUE))
-            glAssert(glLineWidth(1.0f))
-            glAssert(glPolygonMode(GL_FRONT, GL_FILL))
+            renderState.gl().glDepthMask(GL_TRUE);
+            renderState.gl().glLineWidth(1.0f);
+            // renderState.gl().glPolygonMode(GL_FRONT, GL_FILL);
         }
 
-        void Compass::renderAxis(RenderContext& renderContext, const vm::mat4x4f& transformation) {
-            const MultiplyModelMatrix apply(renderContext.transformation(), transformation);
-            m_arrowRenderer.render();
+        void Compass::renderAxis(RenderState& renderState, const vm::mat4x4f& transformation) {
+            const MultiplyModelMatrix apply(renderState.transformation(), transformation);
+            m_arrowRenderer.render(renderState);
         }
     }
 }

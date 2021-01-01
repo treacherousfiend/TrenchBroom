@@ -31,13 +31,16 @@
 namespace TrenchBroom {
     namespace Renderer {
         class FontDescriptor;
+        class OpenGLWrapper;
+        class RenderContext;
         class TextureFont;
 
         class FreeTypeFontFactory : public FontFactory {
         private:
             FT_Library m_library;
+            OpenGLWrapper& m_openGLWrapper;
         public:
-            FreeTypeFontFactory();
+            FreeTypeFontFactory(OpenGLWrapper& openGLWrapper);
             ~FreeTypeFontFactory() override;
         private:
             std::unique_ptr<TextureFont> doCreateFont(const FontDescriptor& fontDescriptor) override;

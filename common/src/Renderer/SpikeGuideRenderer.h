@@ -62,8 +62,8 @@ namespace TrenchBroom {
             void add(const vm::ray3& ray, FloatType length, std::shared_ptr<View::MapDocument> document);
             void clear();
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
         private:
             void addPoint(const vm::vec3& position);
             void addSpike(const vm::ray3& ray, FloatType length, FloatType maxLength);

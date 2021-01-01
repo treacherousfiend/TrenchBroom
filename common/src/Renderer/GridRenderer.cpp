@@ -26,6 +26,7 @@
 #include "Renderer/PrimType.h"
 #include "Renderer/OrthographicCamera.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/Shaders.h"
 
@@ -71,23 +72,23 @@ namespace TrenchBroom {
             }
         }
 
-        void GridRenderer::doPrepareVertices(VboManager& vboManager) {
-            m_vertexArray.prepare(vboManager);
+        void GridRenderer::doPrepareVertices(RenderContext& renderContext) {
+            m_vertexArray.prepare(renderContext);
         }
 
-        void GridRenderer::doRender(RenderContext& renderContext) {
-            if (renderContext.showGrid()) {
-                const auto& camera = renderContext.camera();
+        void GridRenderer::doRender(RenderState& renderState) {
+            if (renderState.showGrid()) {
+                const auto& camera = renderState.camera();
 
-                ActiveShader shader(renderContext.shaderManager(), Shaders::Grid2DShader);
+                ActiveShader shader(renderState, Shaders::Grid2DShader);
                 shader.set("Normal", -camera.direction());
-                shader.set("RenderGrid", renderContext.showGrid());
-                shader.set("GridSize", static_cast<float>(renderContext.gridSize()));
+                shader.set("RenderGrid", renderState.showGrid());
+                shader.set("GridSize", static_cast<float>(renderState.gridSize()));
                 shader.set("GridAlpha", pref(Preferences::GridAlpha));
                 shader.set("GridColor", pref(Preferences::GridColor2D));
                 shader.set("CameraZoom", camera.zoom());
 
-                m_vertexArray.render(PrimType::Quads);
+                m_vertexArray.render(renderState, PrimType::Quads);
             }
         }
     }

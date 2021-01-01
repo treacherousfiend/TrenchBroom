@@ -37,7 +37,7 @@ namespace TrenchBroom {
         enum class PrimitiveRendererCullingPolicy;
         enum class PrimitiveRendererOcclusionPolicy;
         class RenderBatch;
-        class RenderContext;
+        class RenderState;
         class TextAnchor;
         class TextRenderer;
 
@@ -47,7 +47,7 @@ namespace TrenchBroom {
             using CullingPolicy = PrimitiveRendererCullingPolicy;
             class HeadsUpTextAnchor;
 
-            RenderContext& m_renderContext;
+            RenderState& m_renderState;
             RenderBatch& m_renderBatch;
             std::unique_ptr<TextRenderer> m_textRenderer;
             std::unique_ptr<PointHandleRenderer> m_pointHandleRenderer;
@@ -59,7 +59,7 @@ namespace TrenchBroom {
             OcclusionPolicy m_occlusionPolicy;
             CullingPolicy m_cullingPolicy;
         public:
-            RenderService(RenderContext& renderContext, RenderBatch& renderBatch);
+            RenderService(RenderState& renderState, RenderBatch& renderBatch);
             ~RenderService();
 
             deleteCopyAndMove(RenderService)

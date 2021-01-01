@@ -99,15 +99,15 @@ namespace TrenchBroom {
 
             void setShowHiddenEntities(bool showHiddenEntities);
         public: // rendering
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private:
-            void renderBounds(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderPointEntityWireframeBounds(RenderBatch& renderBatch);
-            void renderBrushEntityWireframeBounds(RenderBatch& renderBatch);
-            void renderSolidBounds(RenderBatch& renderBatch);
-            void renderModels(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderClassnames(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderAngles(RenderContext& renderContext, RenderBatch& renderBatch);
+            void renderBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderPointEntityWireframeBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderBrushEntityWireframeBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSolidBounds(RenderState& renderState, RenderBatch& renderBatch);
+            void renderModels(RenderState& renderState, RenderBatch& renderBatch);
+            void renderClassnames(RenderState& renderState, RenderBatch& renderBatch);
+            void renderAngles(RenderState& renderState, RenderBatch& renderBatch);
             std::vector<vm::vec3f> arrowHead(float length, float width) const;
 
             struct BuildColoredSolidBoundsVertices;

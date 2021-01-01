@@ -31,8 +31,10 @@
 #include "Model/Entity.h"
 #include "Model/EntityNode.h"
 #include "Renderer/ActiveShader.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
 #include "Renderer/TexturedIndexRangeRenderer.h"
@@ -115,33 +117,33 @@ namespace TrenchBroom {
             m_showHiddenEntities = showHiddenEntities;
         }
 
-        void EntityModelRenderer::render(RenderBatch& renderBatch) {
+        void EntityModelRenderer::render(RenderState& /* renderState */, RenderBatch& renderBatch) {
             renderBatch.add(this);
         }
 
-        void EntityModelRenderer::doPrepareVertices(VboManager& vboManager) {
-            m_entityModelManager.prepare(vboManager);
+        void EntityModelRenderer::doPrepareVertices(RenderContext& renderContext) {
+            m_entityModelManager.prepare(renderContext);
         }
 
-        void EntityModelRenderer::doRender(RenderContext& renderContext) {
+        void EntityModelRenderer::doRender(RenderState& renderState) {
             auto& prefs = PreferenceManager::instance();
 
-            ActiveShader shader(renderContext.shaderManager(), Shaders::EntityModelShader);
+            ActiveShader shader(renderState, Shaders::EntityModelShader);
             shader.set("Brightness", prefs.get(Preferences::Brightness));
             shader.set("ApplyTinting", m_applyTinting);
             shader.set("TintColor", m_tintColor);
             shader.set("GrayScale", false);
             shader.set("Texture", 0);
-            shader.set("ShowSoftMapBounds", !renderContext.softMapBounds().is_empty());
-            shader.set("SoftMapBoundsMin", renderContext.softMapBounds().min);
-            shader.set("SoftMapBoundsMax", renderContext.softMapBounds().max);
+            shader.set("ShowSoftMapBounds", !renderState.softMapBounds().is_empty());
+            shader.set("SoftMapBoundsMin", renderState.softMapBounds().min);
+            shader.set("SoftMapBoundsMax", renderState.softMapBounds().max);
             shader.set("SoftMapBoundsColor", vm::vec4f(prefs.get(Preferences::SoftMapBoundsColor).r(),
                                                        prefs.get(Preferences::SoftMapBoundsColor).g(),
                                                        prefs.get(Preferences::SoftMapBoundsColor).b(),
                                                        0.1f));
 
-            glAssert(glEnable(GL_TEXTURE_2D));
-            glAssert(glActiveTexture(GL_TEXTURE0));
+            renderState.gl().glEnable(GL_TEXTURE_2D);
+            renderState.gl().glActiveTexture(GL_TEXTURE0);
 
             for (const auto& entry : m_entities) {
                 auto* entityNode = entry.first;
@@ -152,11 +154,11 @@ namespace TrenchBroom {
                 auto* renderer = entry.second;
 
                 const auto transformation = entityNode->entity().modelTransformation();
-                MultiplyModelMatrix multMatrix(renderContext.transformation(), vm::mat4x4f(transformation));
+                MultiplyModelMatrix multMatrix(renderState.transformation(), vm::mat4x4f(transformation));
 
                 shader.set("ModelMatrix", vm::mat4x4f(transformation));
 
-                renderer->render();
+                renderer->render(renderState);
             }
         }
     }

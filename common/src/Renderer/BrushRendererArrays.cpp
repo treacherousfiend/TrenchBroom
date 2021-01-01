@@ -19,6 +19,8 @@
 
 #include "Renderer/BrushRendererArrays.h"
 
+#include "Renderer/RenderState.h"
+
 #include <cassert>
 #include <algorithm>
 #include <cstring>
@@ -80,11 +82,11 @@ namespace TrenchBroom {
             std::memset(dest, 0, count * sizeof(Index));
         }
 
-        void IndexHolder::render(const PrimType primType, const size_t offset, size_t count) const {
+        void IndexHolder::render(RenderState& renderState, const PrimType primType, const size_t offset, size_t count) const {
             const GLsizei renderCount = static_cast<GLsizei>(count);
             const GLvoid *renderOffset = reinterpret_cast<GLvoid *>(m_vbo->offset() + sizeof(Index) * offset);
 
-            glAssert(glDrawElements(toGL(primType), renderCount, glType<Index>(), renderOffset));
+            renderState.gl().glDrawElements(toGL(primType), renderCount, glType<Index>(), renderOffset);
         }
 
         std::shared_ptr<IndexHolder> IndexHolder::swap(std::vector<IndexHolder::Index> &elements) {
@@ -131,17 +133,17 @@ namespace TrenchBroom {
             m_indexHolder.zeroRange(pos, size);
         }
 
-        void BrushIndexArray::render(const PrimType primType) const {
+        void BrushIndexArray::render(RenderState& renderState, const PrimType primType) const {
             assert(m_indexHolder.prepared());
-            m_indexHolder.render(primType, 0, m_indexHolder.size());
+            m_indexHolder.render(renderState, primType, 0, m_indexHolder.size());
         }
 
         bool BrushIndexArray::prepared() const {
             return m_indexHolder.prepared();
         }
 
-        void BrushIndexArray::prepare(VboManager& vboManager) {
-            m_indexHolder.prepare(vboManager);
+        void BrushIndexArray::prepare(RenderContext& renderContext) {
+            m_indexHolder.prepare(renderContext);
             assert(m_indexHolder.prepared());
         }
 
@@ -188,20 +190,20 @@ namespace TrenchBroom {
             // us to re-use the space later
         }
 
-        bool BrushVertexArray::setupVertices() {
-            return m_vertexHolder.setupVertices();
+        bool BrushVertexArray::setupVertices(RenderContext& renderContext) {
+            return m_vertexHolder.setupVertices(renderContext);
         }
 
-        void BrushVertexArray::cleanupVertices() {
-            m_vertexHolder.cleanupVertices();
+        void BrushVertexArray::cleanupVertices(RenderContext& renderContext) {
+            m_vertexHolder.cleanupVertices(renderContext);
         }
 
         bool BrushVertexArray::prepared() const {
             return m_vertexHolder.prepared();
         }
 
-        void BrushVertexArray::prepare(VboManager& vboManager) {
-            m_vertexHolder.prepare(vboManager);
+        void BrushVertexArray::prepare(RenderContext& renderContext) {
+            m_vertexHolder.prepare(renderContext);
             assert(m_vertexHolder.prepared());
         }
     }

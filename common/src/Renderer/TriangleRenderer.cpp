@@ -21,7 +21,7 @@
 
 #include "Renderer/ActiveShader.h"
 #include "Renderer/Camera.h"
-#include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
 
@@ -59,21 +59,21 @@ namespace TrenchBroom {
             m_tintColor = tintColor;
         }
 
-        void TriangleRenderer::doPrepareVertices(VboManager& vboManager) {
-            m_vertexArray.prepare(vboManager);
+        void TriangleRenderer::doPrepareVertices(RenderContext& renderContext) {
+            m_vertexArray.prepare(renderContext);
         }
 
-        void TriangleRenderer::doRender(RenderContext& context) {
+        void TriangleRenderer::doRender(RenderState& renderState) {
             if (m_vertexArray.vertexCount() == 0)
                 return;
 
-            ActiveShader shader(context.shaderManager(), Shaders::TriangleShader);
+            ActiveShader shader(renderState, Shaders::TriangleShader);
             shader.set("ApplyTinting", m_applyTinting);
             shader.set("TintColor", m_tintColor);
             shader.set("UseColor", m_useColor);
             shader.set("Color", m_color);
-            shader.set("CameraPosition", context.camera().position());
-            m_indexArray.render(m_vertexArray);
+            shader.set("CameraPosition", renderState.camera().position());
+            m_indexArray.render(renderState, m_vertexArray);
         }
     }
 }

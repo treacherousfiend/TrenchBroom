@@ -35,7 +35,7 @@ namespace TrenchBroom {
 
     namespace Renderer {
         class RenderContext;
-        class VboManager;
+        class RenderState;
 
         class PointGuideRenderer : public DirectRenderable {
         private:
@@ -52,8 +52,8 @@ namespace TrenchBroom {
             void setColor(const Color& color);
             void setPosition(const vm::vec3& position);
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
         };
     }
 }

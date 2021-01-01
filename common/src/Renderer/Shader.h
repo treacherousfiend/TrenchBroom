@@ -30,13 +30,16 @@ namespace TrenchBroom {
     }
 
     namespace Renderer {
+        class OpenGLWrapper;
+
         class Shader {
         private:
             std::string m_name;
             GLenum m_type;
             GLuint m_shaderId;
+            OpenGLWrapper& m_openGLWrapper;
         public:
-            Shader(const IO::Path& path, const GLenum type);
+            Shader(OpenGLWrapper& openGLWrapper, const IO::Path& path, const GLenum type);
             ~Shader();
 
             void attach(const GLuint programId);

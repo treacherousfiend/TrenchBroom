@@ -22,6 +22,8 @@
 #include "Exceptions.h"
 #include "IO/IOUtils.h"
 #include "IO/Path.h"
+#include "Renderer/OpenGLWrapper.h"
+#include "Renderer/RenderContext.h"
 
 #include <cassert>
 #include <fstream>
@@ -31,12 +33,13 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        Shader::Shader(const IO::Path& path, const GLenum type) :
+        Shader::Shader(OpenGLWrapper& openGLWrapper, const IO::Path& path, const GLenum type) :
         m_name(path.lastComponent().asString()),
         m_type(type),
-        m_shaderId(0) {
+        m_shaderId(0),
+        m_openGLWrapper(openGLWrapper) {
             assert(m_type == GL_VERTEX_SHADER || m_type == GL_FRAGMENT_SHADER);
-            glAssert(m_shaderId = glCreateShader(m_type));
+            m_shaderId = m_openGLWrapper.glCreateShader(m_type);
 
             if (m_shaderId == 0)
                 throw RenderException("Could not create shader " + m_name);
@@ -46,22 +49,22 @@ namespace TrenchBroom {
             for (size_t i = 0; i < source.size(); i++)
                 linePtrs[i] = source[i].c_str();
 
-            glAssert(glShaderSource(m_shaderId, static_cast<GLsizei>(source.size()), linePtrs, nullptr));
+            m_openGLWrapper.glShaderSource(m_shaderId, static_cast<GLsizei>(source.size()), linePtrs, nullptr);
             delete[] linePtrs;
 
-            glAssert(glCompileShader(m_shaderId));
+            m_openGLWrapper.glCompileShader(m_shaderId);
             GLint compileStatus;
-            glAssert(glGetShaderiv(m_shaderId, GL_COMPILE_STATUS, &compileStatus));
+            m_openGLWrapper.glGetShaderiv(m_shaderId, GL_COMPILE_STATUS, &compileStatus);
 
             if (compileStatus == 0) {
                 auto str = std::stringstream();
                 str << "Could not compile shader " << m_name << ": ";
 
                 GLint infoLogLength;
-                glAssert(glGetShaderiv(m_shaderId, GL_INFO_LOG_LENGTH, &infoLogLength));
+                m_openGLWrapper.glGetShaderiv(m_shaderId, GL_INFO_LOG_LENGTH, &infoLogLength);
                 if (infoLogLength > 0) {
                     char* infoLog = new char[static_cast<size_t>(infoLogLength)];
-                    glAssert(glGetShaderInfoLog(m_shaderId, infoLogLength, &infoLogLength, infoLog));
+                    m_openGLWrapper.glGetShaderInfoLog(m_shaderId, infoLogLength, &infoLogLength, infoLog);
                     infoLog[infoLogLength-1] = 0;
 
                     str << infoLog;
@@ -76,17 +79,17 @@ namespace TrenchBroom {
 
         Shader::~Shader() {
             if (m_shaderId != 0) {
-                glAssert(glDeleteShader(m_shaderId));
+                m_openGLWrapper.glDeleteShader(m_shaderId);
                 m_shaderId = 0;
             }
         }
 
         void Shader::attach(const GLuint programId) {
-            glAssert(glAttachShader(programId, m_shaderId));
+            m_openGLWrapper.glAttachShader(programId, m_shaderId);
         }
 
         void Shader::detach(const GLuint programId) {
-            glAssert(glDetachShader(programId, m_shaderId));
+            m_openGLWrapper.glDetachShader(programId, m_shaderId);
         }
 
         std::vector<std::string> Shader::loadSource(const IO::Path& path) {

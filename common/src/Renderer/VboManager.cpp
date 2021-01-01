@@ -52,14 +52,14 @@ namespace TrenchBroom {
 
         // VboManager
 
-        VboManager::VboManager(ShaderManager* shaderManager) :
+        VboManager::VboManager(OpenGLWrapper& openGLWrapper) :
         m_peakVboCount(0u),
         m_currentVboCount(0u),
         m_currentVboSize(0u),
-        m_shaderManager(shaderManager) {}
+        m_openGLWrapper(openGLWrapper) {}
 
         Vbo* VboManager::allocateVbo(VboType type, const size_t capacity, const VboUsage usage) {
-            auto* result = new Vbo(typeToOpenGL(type), capacity, usageToOpenGL(usage));
+            auto* result = new Vbo(m_openGLWrapper, typeToOpenGL(type), capacity, usageToOpenGL(usage));
 
             m_currentVboSize += capacity;
             m_currentVboCount++;
@@ -86,10 +86,6 @@ namespace TrenchBroom {
 
         size_t VboManager::currentVboSize() const {
             return m_currentVboSize;
-        }
-
-        ShaderManager& VboManager::shaderManager() {
-            return *m_shaderManager;
         }
     }
 }

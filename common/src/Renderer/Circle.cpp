@@ -68,12 +68,12 @@ namespace TrenchBroom {
             return m_array.prepared();
         }
 
-        void Circle::prepare(VboManager& vboManager) {
-            m_array.prepare(vboManager);
+        void Circle::prepare(RenderContext& renderContext) {
+            m_array.prepare(renderContext);
         }
 
-        void Circle::render() {
-            m_array.render(m_filled ? PrimType::TriangleFan : PrimType::LineLoop);
+        void Circle::render(RenderState& renderState) {
+            m_array.render(renderState, m_filled ? PrimType::TriangleFan : PrimType::LineLoop);
         }
 
         void Circle::init2D(const float radius, const size_t segments, const float startAngle, const float angleLength) {

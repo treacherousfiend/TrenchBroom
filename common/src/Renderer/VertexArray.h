@@ -35,6 +35,8 @@
 namespace TrenchBroom {
     namespace Renderer {
         enum class PrimType;
+        class RenderContext;
+        class RenderState;
 
         /**
          * Represents an array of vertices. Optionally, multiple instances of this class can share the same data.
@@ -52,7 +54,7 @@ namespace TrenchBroom {
                 virtual size_t vertexCount() const = 0;
                 virtual size_t sizeInBytes() const = 0;
 
-                virtual void prepare(VboManager& vboManager) = 0;
+                virtual void prepare(RenderContext& renderContext) = 0;
                 virtual void setup() = 0;
                 virtual void cleanup() = 0;
             };
@@ -60,7 +62,7 @@ namespace TrenchBroom {
             template <typename VertexSpec>
             class Holder : public BaseHolder {
             private:
-                VboManager* m_vboManager;
+                RenderContext* m_renderContext;
                 Vbo* m_vbo;
                 size_t m_vertexCount;
             public:
@@ -72,27 +74,30 @@ namespace TrenchBroom {
                     return VertexSpec::Size * m_vertexCount;
                 }
 
-                void prepare(VboManager& vboManager) override {
+                void prepare(RenderContext& renderContext) override {
                     if (m_vertexCount > 0 && m_vbo == nullptr) {
-                        m_vboManager = &vboManager;
-                        m_vbo = vboManager.allocateVbo(VboType::ArrayBuffer, sizeInBytes());;
+                        m_renderContext = &renderContext;
+                        m_vbo = m_renderContext->vboManager().allocateVbo(VboType::ArrayBuffer, sizeInBytes());;
                         m_vbo->writeBuffer(0, doGetVertices());
                     }
                 }
 
                 void setup() override {
                     ensure(m_vbo != nullptr, "block is null");
+                    ensure(m_renderContext != nullptr, "render context is null");
                     m_vbo->bind();
-                    VertexSpec::setup(m_vboManager->shaderManager().currentProgram(), m_vbo->offset());
+                    VertexSpec::setup(m_renderContext->shaderManager().currentProgram(), m_vbo->offset());
                 }
 
                 void cleanup() override {
-                    VertexSpec::cleanup(m_vboManager->shaderManager().currentProgram());
+                    ensure(m_vbo != nullptr, "block is null");
+                    ensure(m_renderContext != nullptr, "render context is null");
+                    VertexSpec::cleanup(m_renderContext->shaderManager().currentProgram());
                     m_vbo->unbind();
                 }
             protected:
                 Holder(const size_t vertexCount) :
-                m_vboManager(nullptr),
+                m_renderContext(nullptr),
                 m_vbo(nullptr),
                 m_vertexCount(vertexCount) {}
 
@@ -100,7 +105,8 @@ namespace TrenchBroom {
                     // TODO: Revisit this revisiting OpenGL resource management. We should not store the VboManager,
                     // since it represents a safe time to delete the OpenGL buffer object.
                     if (m_vbo != nullptr) {
-                        m_vboManager->destroyVbo(m_vbo);
+                        ensure(m_renderContext != nullptr, "render context is null");
+                        m_renderContext->vboManager().destroyVbo(m_vbo);
                         m_vbo = nullptr;
                     }
                 }
@@ -124,8 +130,8 @@ namespace TrenchBroom {
                 Holder<VertexSpec>(vertices.size()),
                 m_vertices(std::move(vertices)) {}
 
-                void prepare(VboManager& vboManager) override {
-                    Holder<VertexSpec>::prepare(vboManager);
+                void prepare(RenderContext& renderContext) override {
+                    Holder<VertexSpec>::prepare(renderContext);
                     kdl::vec_clear_to_zero(m_vertices);
                 }
             private:
@@ -234,7 +240,7 @@ namespace TrenchBroom {
              *
              * @param vboManager the vertex buffer object to upload the contents of this vertex array into
              */
-            void prepare(VboManager& vboManager);
+            void prepare(RenderContext& renderContext);
 
             /**
              * Sets this vertex array up for rendering. If this vertex array is only rendered once, then there is no
@@ -254,7 +260,7 @@ namespace TrenchBroom {
              *
              * @param primType the primitive type to render
              */
-            void render(PrimType primType);
+            void render(RenderState& renderState, PrimType primType);
 
             /**
              * Renders a sub range of this vertex array as a range of primitives of the given type.
@@ -263,7 +269,7 @@ namespace TrenchBroom {
              * @param index the index of the first vertex in this vertex array to render
              * @param count the number of vertices to render
              */
-            void render(PrimType primType, GLint index, GLsizei count);
+            void render(RenderState& renderState, PrimType primType, GLint index, GLsizei count);
 
             /**
              * Renders a number of sub ranges of this vertex array as ranges of primitives of the given type. The given
@@ -275,7 +281,7 @@ namespace TrenchBroom {
              * @param counts the lengths of the ranges to render
              * @param primCount the number of ranges to render
              */
-            void render(PrimType primType, const GLIndices& indices, const GLCounts& counts, GLint primCount);
+            void render(RenderState& renderState, PrimType primType, const GLIndices& indices, const GLCounts& counts, GLint primCount);
 
             /**
              * Renders a number of primitives of the given type, the vertices of which are indicates by the given
@@ -285,7 +291,7 @@ namespace TrenchBroom {
              * @param indices the indices of the vertices to render
              * @param count the number of vertices to render
              */
-            void render(PrimType primType, const GLIndices& indices, GLsizei count);
+            void render(RenderState& renderState, PrimType primType, const GLIndices& indices, GLsizei count);
             void cleanup();
         private:
             explicit VertexArray(std::shared_ptr<BaseHolder> holder);

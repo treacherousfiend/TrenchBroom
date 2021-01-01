@@ -25,9 +25,11 @@
 #include "Renderer/ActiveShader.h"
 #include "Renderer/BrushRendererArrays.h"
 #include "Renderer/Camera.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/PrimType.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderUtils.h"
 #include "Renderer/Shaders.h"
 #include "Renderer/ShaderManager.h"
@@ -118,16 +120,16 @@ namespace TrenchBroom {
             m_alpha = alpha;
         }
 
-        void FaceRenderer::render(RenderBatch& renderBatch) {
+        void FaceRenderer::render(RenderState& /* renderState */, RenderBatch& renderBatch) {
             renderBatch.add(this);
         }
 
-        void FaceRenderer::prepareVerticesAndIndices(VboManager& vboManager) {
-            m_vertexArray->prepare(vboManager);
+        void FaceRenderer::prepareVerticesAndIndices(RenderContext& renderContext) {
+            m_vertexArray->prepare(renderContext);
 
             for (const auto& pair : *m_indexArrayMap) {
                 const auto& brushIndexHolderPtr = pair.second;
-                brushIndexHolderPtr->prepare(vboManager);
+                brushIndexHolderPtr->prepare(renderContext);
             }
         }
 
@@ -146,24 +148,23 @@ namespace TrenchBroom {
             }
         }
 
-        void FaceRenderer::doRender(RenderContext& context) {
+        void FaceRenderer::doRender(RenderState& renderState) {
             if (m_indexArrayMap->empty())
                 return;
 
-            if (m_vertexArray->setupVertices()) {
-                ShaderManager& shaderManager = context.shaderManager();
-                ActiveShader shader(shaderManager, Shaders::FaceShader);
+            if (m_vertexArray->setupVertices(renderState.renderContext())) {
+                ActiveShader shader(renderState, Shaders::FaceShader);
                 PreferenceManager& prefs = PreferenceManager::instance();
 
-                const bool applyTexture = context.showTextures();
-                const bool shadeFaces = context.shadeFaces();
-                const bool showFog = context.showFog();
+                const bool applyTexture = renderState.showTextures();
+                const bool shadeFaces = renderState.shadeFaces();
+                const bool showFog = renderState.showFog();
 
-                glAssert(glEnable(GL_TEXTURE_2D));
-                glAssert(glActiveTexture(GL_TEXTURE0));
+                renderState.gl().glEnable(GL_TEXTURE_2D);
+                renderState.gl().glActiveTexture(GL_TEXTURE0);
                 shader.set("Brightness", prefs.get(Preferences::Brightness));
-                shader.set("RenderGrid", context.showGrid());
-                shader.set("GridSize", static_cast<float>(context.gridSize()));
+                shader.set("RenderGrid", renderState.showGrid());
+                shader.set("GridSize", static_cast<float>(renderState.gridSize()));
                 shader.set("GridAlpha", prefs.get(Preferences::GridAlpha));
                 shader.set("ApplyTexture", applyTexture);
                 shader.set("Texture", 0);
@@ -171,14 +172,14 @@ namespace TrenchBroom {
                 if (m_tint)
                     shader.set("TintColor", m_tintColor);
                 shader.set("GrayScale", m_grayscale);
-                shader.set("CameraPosition", context.camera().position());
+                shader.set("CameraPosition", renderState.camera().position());
                 shader.set("ShadeFaces", shadeFaces);
                 shader.set("ShowFog", showFog);
                 shader.set("Alpha", m_alpha);
                 shader.set("EnableMasked", false);
-                shader.set("ShowSoftMapBounds", !context.softMapBounds().is_empty());
-                shader.set("SoftMapBoundsMin", context.softMapBounds().min);
-                shader.set("SoftMapBoundsMax", context.softMapBounds().max);
+                shader.set("ShowSoftMapBounds", !renderState.softMapBounds().is_empty());
+                shader.set("SoftMapBoundsMin", renderState.softMapBounds().min);
+                shader.set("SoftMapBoundsMax", renderState.softMapBounds().max);
                 shader.set("SoftMapBoundsColor", vm::vec4f(prefs.get(Preferences::SoftMapBoundsColor).r(),
                                                            prefs.get(Preferences::SoftMapBoundsColor).g(),
                                                            prefs.get(Preferences::SoftMapBoundsColor).b(),
@@ -186,7 +187,7 @@ namespace TrenchBroom {
 
                 RenderFunc func(shader, applyTexture, m_faceColor);
                 if (m_alpha < 1.0f) {
-                    glAssert(glDepthMask(GL_FALSE));
+                    renderState.gl().glDepthMask(GL_FALSE);
                 }
                 for (const auto& [texture, brushIndexHolderPtr] : *m_indexArrayMap) {
                     if (!brushIndexHolderPtr->hasValidIndices()) {
@@ -201,14 +202,14 @@ namespace TrenchBroom {
 
                     func.before(texture);
                     brushIndexHolderPtr->setupIndices();
-                    brushIndexHolderPtr->render(PrimType::Triangles);
+                    brushIndexHolderPtr->render(renderState, PrimType::Triangles);
                     brushIndexHolderPtr->cleanupIndices();
                     func.after(texture);
                 }
                 if (m_alpha < 1.0f) {
-                    glAssert(glDepthMask(GL_TRUE));
+                    renderState.gl().glDepthMask(GL_TRUE);
                 }
-                m_vertexArray->cleanupVertices();
+                m_vertexArray->cleanupVertices(renderState.renderContext());
             }
         }
     }

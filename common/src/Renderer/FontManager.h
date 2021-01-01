@@ -29,6 +29,7 @@ namespace TrenchBroom {
     namespace Renderer {
         class FontDescriptor;
         class FontFactory;
+        class OpenGLWrapper;
         class TextureFont;
 
         class FontManager {
@@ -36,7 +37,7 @@ namespace TrenchBroom {
             std::unique_ptr<FontFactory> m_factory;
             std::map<FontDescriptor, std::unique_ptr<TextureFont>> m_cache;
         public:
-            FontManager();
+            FontManager(OpenGLWrapper& openGLWrapper);
             ~FontManager();
 
             TextureFont& font(const FontDescriptor& fontDescriptor);

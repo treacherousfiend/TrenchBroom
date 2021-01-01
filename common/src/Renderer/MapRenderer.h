@@ -51,6 +51,7 @@ namespace TrenchBroom {
         class ObjectRenderer;
         class RenderBatch;
         class RenderContext;
+        class RenderState;
 
         class MapRenderer {
         private:
@@ -80,17 +81,17 @@ namespace TrenchBroom {
             void overrideSelectionColors(const Color& color, float mix);
             void restoreSelectionColors();
         public: // rendering
-            void render(RenderContext& renderContext, RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private:
             void commitPendingChanges();
             void setupGL(RenderBatch& renderBatch);
-            void renderDefaultOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderDefaultTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderSelectionOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderSelectionTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderLockedOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderLockedTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
-            void renderEntityLinks(RenderContext& renderContext, RenderBatch& renderBatch);
+            void renderDefaultOpaque(RenderState& renderState, RenderBatch& renderBatch);
+            void renderDefaultTransparent(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSelectionOpaque(RenderState& renderState, RenderBatch& renderBatch);
+            void renderSelectionTransparent(RenderState& renderState, RenderBatch& renderBatch);
+            void renderLockedOpaque(RenderState& renderState, RenderBatch& renderBatch);
+            void renderLockedTransparent(RenderState& renderState, RenderBatch& renderBatch);
+            void renderEntityLinks(RenderState& renderState, RenderBatch& renderBatch);
 
             void setupRenderers();
             void setupDefaultRenderer(ObjectRenderer& renderer);

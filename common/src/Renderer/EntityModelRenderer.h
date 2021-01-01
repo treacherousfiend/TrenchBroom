@@ -38,6 +38,8 @@ namespace TrenchBroom {
 
     namespace Renderer {
         class RenderBatch;
+        class RenderContext;
+        class RenderState;
         class TexturedRenderer;
 
         class EntityModelRenderer : public DirectRenderable {
@@ -93,10 +95,10 @@ namespace TrenchBroom {
             bool showHiddenEntities() const;
             void setShowHiddenEntities(bool showHiddenEntities);
 
-            void render(RenderBatch& renderBatch);
+            void render(RenderState& renderState, RenderBatch& renderBatch);
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void doRender(RenderContext& renderContext) override;
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void doRender(RenderState& renderState) override;
         };
     }
 }

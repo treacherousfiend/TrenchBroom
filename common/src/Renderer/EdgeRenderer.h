@@ -31,18 +31,19 @@ namespace TrenchBroom {
         class BrushIndexArray;
         class BrushVertexArray;
         class RenderBatch;
+        class RenderContext;
 
         class EdgeRenderer {
         public:
             struct Params {
                 float width;
-                double offset;
+                float offset;
                 bool onTop;
                 bool useColor;
                 Color color;
-                Params(float i_width, double i_offset, bool i_onTop);
-                Params(float i_width, double i_offset, bool i_onTop, const Color& i_color);
-                Params(float i_width, double i_offset, bool i_onTop, bool i_useColor, const Color& i_color);
+                Params(float i_width, float i_offset, bool i_onTop);
+                Params(float i_width, float i_offset, bool i_onTop, const Color& i_color);
+                Params(float i_width, float i_offset, bool i_onTop, bool i_useColor, const Color& i_color);
             };
 
             class RenderBase {
@@ -52,22 +53,22 @@ namespace TrenchBroom {
                 RenderBase(const Params& params);
                 virtual ~RenderBase();
             protected:
-                void renderEdges(RenderContext& renderContext);
+                void renderEdges(RenderState& renderState);
             private:
-                virtual void doRenderVertices(RenderContext& renderContext) = 0;
+                virtual void doRenderVertices(RenderState& renderState) = 0;
             };
         public:
             virtual ~EdgeRenderer();
 
-            void render(RenderBatch& renderBatch, float width = 1.0f, double offset = 0.0);
-            void render(RenderBatch& renderBatch, const Color& color, float width = 1.0f, double offset = 0.0);
-            void render(RenderBatch& renderBatch, bool useColor, const Color& color, float width = 1.0f, double offset = 0.0);
-            void renderOnTop(RenderBatch& renderBatch, float width = 1.0f, double offset = 0.2);
-            void renderOnTop(RenderBatch& renderBatch, const Color& color, float width = 1.0f, double offset = 0.2);
-            void renderOnTop(RenderBatch& renderBatch, bool useColor, const Color& color, float width = 1.0f, double offset = 0.2);
-            void render(RenderBatch& renderBatch, bool useColor, const Color& color, bool onTop, float width, double offset);
+            void render(RenderState& renderState, RenderBatch& renderBatch, float width = 1.0f, float offset = 0.0f);
+            void render(RenderState& renderState, RenderBatch& renderBatch, const Color& color, float width = 1.0f, float offset = 0.0f);
+            void render(RenderState& renderState, RenderBatch& renderBatch, bool useColor, const Color& color, float width = 1.0f, float offset = 0.0f);
+            void renderOnTop(RenderState& renderState, RenderBatch& renderBatch, float width = 1.0f, float offset = 0.2f);
+            void renderOnTop(RenderState& renderState, RenderBatch& renderBatch, const Color& color, float width = 1.0f, float offset = 0.2f);
+            void renderOnTop(RenderState& renderState, RenderBatch& renderBatch, bool useColor, const Color& color, float width = 1.0f, float offset = 0.2f);
+            void render(RenderState& renderState, RenderBatch& renderBatch, bool useColor, const Color& color, bool onTop, float width, float offset);
         private:
-            virtual void doRender(RenderBatch& renderBatch, const Params& params) = 0;
+            virtual void doRender(RenderState& renderState, RenderBatch& renderBatch, const Params& params) = 0;
         };
 
         class DirectEdgeRenderer : public EdgeRenderer {
@@ -79,9 +80,9 @@ namespace TrenchBroom {
             public:
                 Render(const Params& params, VertexArray& vertexArray, IndexRangeMap& indexRanges);
             private:
-                void doPrepareVertices(VboManager& vboManager) override;
-                void doRender(RenderContext& renderContext) override;
-                void doRenderVertices(RenderContext& renderContext) override;
+                void doPrepareVertices(RenderContext& renderContext) override;
+                void doRender(RenderState& renderState) override;
+                void doRenderVertices(RenderState& renderState) override;
             };
         private:
             VertexArray m_vertexArray;
@@ -96,7 +97,7 @@ namespace TrenchBroom {
 
             friend void swap(DirectEdgeRenderer& left, DirectEdgeRenderer& right);
         private:
-            void doRender(RenderBatch& renderBatch, const EdgeRenderer::Params& params) override;
+            void doRender(RenderState& renderState, RenderBatch& renderBatch, const EdgeRenderer::Params& params) override;
         };
 
         class IndexedEdgeRenderer : public EdgeRenderer {
@@ -108,9 +109,9 @@ namespace TrenchBroom {
             public:
                 Render(const Params& params, std::shared_ptr<BrushVertexArray> vertexArray, std::shared_ptr<BrushIndexArray> indexArray);
             private:
-                void prepareVerticesAndIndices(VboManager& vboManager) override;
-                void doRender(RenderContext& renderContext) override;
-                void doRenderVertices(RenderContext& renderContext) override;
+                void prepareVerticesAndIndices(RenderContext& renderContext) override;
+                void doRender(RenderState& renderState) override;
+                void doRenderVertices(RenderState& renderState) override;
             };
         private:
             std::shared_ptr<BrushVertexArray> m_vertexArray;
@@ -124,7 +125,7 @@ namespace TrenchBroom {
 
             friend void swap(IndexedEdgeRenderer& left, IndexedEdgeRenderer& right);
         private:
-            void doRender(RenderBatch& renderBatch, const EdgeRenderer::Params& params) override;
+            void doRender(RenderState& renderState, RenderBatch& renderBatch, const EdgeRenderer::Params& params) override;
         };
     }
 }

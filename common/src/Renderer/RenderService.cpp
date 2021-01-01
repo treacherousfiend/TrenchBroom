@@ -29,7 +29,7 @@
 #include "Renderer/PrimitiveRenderer.h"
 #include "Renderer/PointHandleRenderer.h"
 #include "Renderer/RenderBatch.h"
-#include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderUtils.h"
 #include "Renderer/TextAnchor.h"
 #include "Renderer/TextRenderer.h"
@@ -65,8 +65,8 @@ namespace TrenchBroom {
             }
         };
 
-        RenderService::RenderService(RenderContext& renderContext, RenderBatch& renderBatch) :
-        m_renderContext(renderContext),
+        RenderService::RenderService(RenderState& renderState, RenderBatch& renderBatch) :
+        m_renderState(renderState),
         m_renderBatch(renderBatch),
         m_textRenderer(std::make_unique<TextRenderer>(makeRenderServiceFont())),
         m_pointHandleRenderer(std::make_unique<PointHandleRenderer>()),
@@ -119,14 +119,14 @@ namespace TrenchBroom {
 
         void RenderService::renderString(const AttrString& string, const TextAnchor& position) {
             if (m_occlusionPolicy != PrimitiveRendererOcclusionPolicy::Hide) {
-                m_textRenderer->renderStringOnTop(m_renderContext, m_foregroundColor, m_backgroundColor, string, position);
+                m_textRenderer->renderStringOnTop(m_renderState, m_foregroundColor, m_backgroundColor, string, position);
             } else {
-                m_textRenderer->renderString(m_renderContext, m_foregroundColor, m_backgroundColor, string, position);
+                m_textRenderer->renderString(m_renderState, m_foregroundColor, m_backgroundColor, string, position);
             }
         }
 
         void RenderService::renderHeadsUp(const AttrString& string) {
-            m_textRenderer->renderStringOnTop(m_renderContext, m_foregroundColor, m_backgroundColor, string, HeadsUpTextAnchor());
+            m_textRenderer->renderStringOnTop(m_renderState, m_foregroundColor, m_backgroundColor, string, HeadsUpTextAnchor());
         }
 
         void RenderService::renderString(const std::string& string, const vm::vec3f& position) {
@@ -203,8 +203,8 @@ namespace TrenchBroom {
             const Color& y = pref(Preferences::YAxisColor);
             const Color& z = pref(Preferences::ZAxisColor);
 
-            if (m_renderContext.render2D()) {
-                const Camera& camera = m_renderContext.camera();
+            if (m_renderState.render2D()) {
+                const Camera& camera = m_renderState.camera();
                 switch (vm::find_abs_max_component(camera.direction())) {
                     case vm::axis::x:
                         m_primitiveRenderer->renderCoordinateSystemYZ(y, z, m_lineWidth, m_occlusionPolicy, bounds);

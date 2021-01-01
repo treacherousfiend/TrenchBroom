@@ -25,20 +25,22 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        Vbo::Vbo(GLenum type, const size_t capacity, const GLenum usage) :
+        Vbo::Vbo(OpenGLWrapper& openGLWrapper, GLenum type, const size_t capacity, const GLenum usage) :
         m_type(type),
-        m_capacity(capacity) {
+        m_capacity(capacity),
+        m_bufferId(0),
+        m_openGLWrapper(openGLWrapper) {
             assert(m_type == GL_ELEMENT_ARRAY_BUFFER
                    || m_type == GL_ARRAY_BUFFER);
 
-            glAssert(glGenBuffers(1, &m_bufferId));
-            glAssert(glBindBuffer(m_type, m_bufferId));
-            glAssert(glBufferData(m_type, static_cast<GLsizeiptr>(m_capacity), nullptr, usage));
+            m_openGLWrapper.glGenBuffers(1, &m_bufferId);
+            m_openGLWrapper.glBindBuffer(m_type, m_bufferId);
+            m_openGLWrapper.glBufferData(m_type, static_cast<GLsizeiptr>(m_capacity), nullptr, usage);
         }
 
         void Vbo::free() {
             assert(m_bufferId != 0);
-            glAssert(glDeleteBuffers(1, &m_bufferId));
+            m_openGLWrapper.glDeleteBuffers(1, &m_bufferId);
             m_bufferId = 0;
         }
 
@@ -56,12 +58,12 @@ namespace TrenchBroom {
 
         void Vbo::bind() {
             assert(m_bufferId != 0);
-            glAssert(glBindBuffer(m_type, m_bufferId));
+            m_openGLWrapper.glBindBuffer(m_type, m_bufferId);
         }
 
         void Vbo::unbind() {
             assert(m_bufferId != 0);
-            glAssert(glBindBuffer(m_type, 0));
+            m_openGLWrapper.glBindBuffer(m_type, 0);
         }
     }
 }

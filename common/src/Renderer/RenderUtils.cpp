@@ -21,6 +21,7 @@
 
 #include "Assets/Texture.h"
 #include "Renderer/GL.h"
+#include "Renderer/OpenGLWrapper.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/vec.h>
@@ -33,12 +34,12 @@ namespace TrenchBroom {
     namespace Renderer {
         static const double EdgeOffset = 0.0001;
 
-        void glSetEdgeOffset(const double f) {
-            glAssert(glDepthRange(0.0, 1.0 - EdgeOffset * f))
+        void glSetEdgeOffset(OpenGLWrapper& openGLWrapper, const float f) {
+            openGLWrapper.glDepthRangef(0.0f, 1.0f - EdgeOffset * f);
         }
 
-        void glResetEdgeOffset() {
-            glAssert(glDepthRange(EdgeOffset, 1.0))
+        void glResetEdgeOffset(OpenGLWrapper& openGLWrapper) {
+            openGLWrapper.glDepthRangef(EdgeOffset, 1.0f);
         }
 
         void coordinateSystemVerticesX(const vm::bbox3f& bounds, vm::vec3f& start, vm::vec3f& end) {

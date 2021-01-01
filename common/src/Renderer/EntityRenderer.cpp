@@ -33,6 +33,7 @@
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderService.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/TextAnchor.h"
 #include "Renderer/GLVertexType.h"
 
@@ -153,63 +154,63 @@ namespace TrenchBroom {
             m_showHiddenEntities = showHiddenEntities;
         }
 
-        void EntityRenderer::render(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void EntityRenderer::render(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_entities.empty()) {
-                renderBounds(renderContext, renderBatch);
-                renderModels(renderContext, renderBatch);
-                renderClassnames(renderContext, renderBatch);
-                renderAngles(renderContext, renderBatch);
+                renderBounds(renderState, renderBatch);
+                renderModels(renderState, renderBatch);
+                renderClassnames(renderState, renderBatch);
+                renderAngles(renderState, renderBatch);
             }
         }
 
-        void EntityRenderer::renderBounds(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void EntityRenderer::renderBounds(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_boundsValid)
                 validateBounds();
 
-            if (renderContext.showPointEntityBounds()) {
-                renderPointEntityWireframeBounds(renderBatch);
+            if (renderState.showPointEntityBounds()) {
+                renderPointEntityWireframeBounds(renderState, renderBatch);
             }
-            if (renderContext.showBrushEntityBounds()) {
-                renderBrushEntityWireframeBounds(renderBatch);
+            if (renderState.showBrushEntityBounds()) {
+                renderBrushEntityWireframeBounds(renderState, renderBatch);
             }
 
-            if (m_showHiddenEntities || renderContext.showPointEntities())
-                renderSolidBounds(renderBatch);
+            if (m_showHiddenEntities || renderState.showPointEntities())
+                renderSolidBounds(renderState, renderBatch);
         }
 
-        void EntityRenderer::renderPointEntityWireframeBounds(RenderBatch& renderBatch) {
+        void EntityRenderer::renderPointEntityWireframeBounds(RenderState& renderState, RenderBatch& renderBatch) {
             if (m_showOccludedBounds) {
-                m_pointEntityWireframeBoundsRenderer.renderOnTop(renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
+                m_pointEntityWireframeBoundsRenderer.renderOnTop(renderState, renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
             }
-            m_pointEntityWireframeBoundsRenderer.render(renderBatch, m_overrideBoundsColor, m_boundsColor);
+            m_pointEntityWireframeBoundsRenderer.render(renderState, renderBatch, m_overrideBoundsColor, m_boundsColor);
         }
 
-        void EntityRenderer::renderBrushEntityWireframeBounds(RenderBatch& renderBatch) {
+        void EntityRenderer::renderBrushEntityWireframeBounds(RenderState& renderState, RenderBatch& renderBatch) {
             if (m_showOccludedBounds) {
-                m_brushEntityWireframeBoundsRenderer.renderOnTop(renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
+                m_brushEntityWireframeBoundsRenderer.renderOnTop(renderState, renderBatch, m_overrideBoundsColor, m_occludedBoundsColor);
             }
-            m_brushEntityWireframeBoundsRenderer.render(renderBatch, m_overrideBoundsColor, m_boundsColor);
+            m_brushEntityWireframeBoundsRenderer.render(renderState, renderBatch, m_overrideBoundsColor, m_boundsColor);
         }
 
-        void EntityRenderer::renderSolidBounds(RenderBatch& renderBatch) {
+        void EntityRenderer::renderSolidBounds(RenderState& /* renderState */, RenderBatch& renderBatch) {
             m_solidBoundsRenderer.setApplyTinting(m_tint);
             m_solidBoundsRenderer.setTintColor(m_tintColor);
             renderBatch.add(&m_solidBoundsRenderer);
         }
 
-        void EntityRenderer::renderModels(RenderContext& renderContext, RenderBatch& renderBatch) {
-            if (m_showHiddenEntities || (renderContext.showPointEntities() &&
-                                         renderContext.showPointEntityModels())) {
+        void EntityRenderer::renderModels(RenderState& renderState, RenderBatch& renderBatch) {
+            if (m_showHiddenEntities || (renderState.showPointEntities() &&
+                                         renderState.showPointEntityModels())) {
                 m_modelRenderer.setApplyTinting(m_tint);
                 m_modelRenderer.setTintColor(m_tintColor);
                 m_modelRenderer.setShowHiddenEntities(m_showHiddenEntities);
-                m_modelRenderer.render(renderBatch);
+                m_modelRenderer.render(renderState, renderBatch);
             }
         }
 
-        void EntityRenderer::renderClassnames(RenderContext& renderContext, RenderBatch& renderBatch) {
-            if (m_showOverlays && renderContext.showEntityClassnames()) {
-                Renderer::RenderService renderService(renderContext, renderBatch);
+        void EntityRenderer::renderClassnames(RenderState& renderState,  RenderBatch& renderBatch) {
+            if (m_showOverlays && renderState.showEntityClassnames()) {
+                Renderer::RenderService renderService(renderState, renderBatch);
                 renderService.setForegroundColor(m_overlayTextColor);
                 renderService.setBackgroundColor(m_overlayBackgroundColor);
 
@@ -227,7 +228,7 @@ namespace TrenchBroom {
             }
         }
 
-        void EntityRenderer::renderAngles(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void EntityRenderer::renderAngles(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_showAngles) {
                 return;
             }
@@ -235,7 +236,7 @@ namespace TrenchBroom {
             static const auto maxDistance2 = 500.0f * 500.0f;
             const auto arrow = arrowHead(9.0f, 6.0f);
 
-            RenderService renderService(renderContext, renderBatch);
+            RenderService renderService(renderState, renderBatch);
             renderService.setShowOccludedObjectsTransparent();
             renderService.setForegroundColor(m_angleColor);
 
@@ -249,9 +250,9 @@ namespace TrenchBroom {
                 const auto direction = rotation * vm::vec3f::pos_x();
                 const auto center = vm::vec3f(entityNode->logicalBounds().center());
 
-                const auto toCam = renderContext.camera().position() - center;
+                const auto toCam = renderState.camera().position() - center;
                 // only distance cull for perspective camera, since the 2D one is always very far from the level
-                if (renderContext.camera().perspectiveProjection() && vm::squared_length(toCam) > maxDistance2) {
+                if (renderState.camera().perspectiveProjection() && vm::squared_length(toCam) > maxDistance2) {
                     continue;
                 }
 

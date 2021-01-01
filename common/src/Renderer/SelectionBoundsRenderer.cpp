@@ -23,7 +23,7 @@
 #include "PreferenceManager.h"
 #include "Preferences.h"
 #include "Renderer/Camera.h"
-#include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 #include "Renderer/RenderService.h"
 #include "Renderer/TextAnchor.h"
 
@@ -264,35 +264,35 @@ namespace TrenchBroom {
         SelectionBoundsRenderer::SelectionBoundsRenderer(const vm::bbox3& bounds) :
         m_bounds(bounds) {}
 
-        void SelectionBoundsRenderer::render(RenderContext& renderContext, RenderBatch& renderBatch) {
-            renderBounds(renderContext, renderBatch);
-            renderSize(renderContext, renderBatch);
+        void SelectionBoundsRenderer::render(RenderState& renderState, RenderBatch& renderBatch) {
+            renderBounds(renderState, renderBatch);
+            renderSize(renderState, renderBatch);
             // renderMinMax(renderContext, renderBatch);
         }
 
-        void SelectionBoundsRenderer::renderBounds(RenderContext& renderContext, RenderBatch& renderBatch) {
-            RenderService renderService(renderContext, renderBatch);
+        void SelectionBoundsRenderer::renderBounds(RenderState& renderState, RenderBatch& renderBatch) {
+            RenderService renderService(renderState, renderBatch);
             renderService.setForegroundColor(pref(Preferences::SelectionBoundsColor));
             renderService.renderBounds(vm::bbox3f(m_bounds));
         }
 
-        void SelectionBoundsRenderer::renderSize(RenderContext& renderContext, RenderBatch& renderBatch) {
-            if (renderContext.render2D())
-                renderSize2D(renderContext, renderBatch);
+        void SelectionBoundsRenderer::renderSize(RenderState& renderState, RenderBatch& renderBatch) {
+            if (renderState.render2D())
+                renderSize2D(renderState, renderBatch);
             else
-                renderSize3D(renderContext, renderBatch);
+                renderSize3D(renderState, renderBatch);
         }
 
-        void SelectionBoundsRenderer::renderSize2D(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void SelectionBoundsRenderer::renderSize2D(RenderState& renderState, RenderBatch& renderBatch) {
             static const std::string labels[3] = { "X", "Y", "Z" };
             std::stringstream buffer;
 
-            RenderService renderService(renderContext, renderBatch);
+            RenderService renderService(renderState, renderBatch);
             renderService.setForegroundColor(pref(Preferences::InfoOverlayTextColor));
             renderService.setBackgroundColor(pref(Preferences::WeakInfoOverlayBackgroundColor));
             renderService.setShowOccludedObjects();
 
-            const Camera& camera = renderContext.camera();
+            const Camera& camera = renderState.camera();
             const vm::vec3f& direction = camera.direction();
 
             const vm::vec3 boundsSize = correct(m_bounds.size());
@@ -305,11 +305,11 @@ namespace TrenchBroom {
             }
         }
 
-        void SelectionBoundsRenderer::renderSize3D(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void SelectionBoundsRenderer::renderSize3D(RenderState& renderState, RenderBatch& renderBatch) {
             static const std::string labels[3] = { "X", "Y", "Z" };
             std::stringstream buffer;
 
-            RenderService renderService(renderContext, renderBatch);
+            RenderService renderService(renderState, renderBatch);
             renderService.setForegroundColor(pref(Preferences::InfoOverlayTextColor));
             renderService.setBackgroundColor(pref(Preferences::WeakInfoOverlayBackgroundColor));
             renderService.setShowOccludedObjects();
@@ -318,26 +318,26 @@ namespace TrenchBroom {
             for (size_t i = 0; i < 3; ++i) {
                 buffer << labels[i] << ": " << boundsSize[i];
 
-                renderService.renderString(buffer.str(), SizeTextAnchor3D(m_bounds, i, renderContext.camera()));
+                renderService.renderString(buffer.str(), SizeTextAnchor3D(m_bounds, i, renderState.camera()));
 
                 buffer.str("");
             }
         }
 
-        void SelectionBoundsRenderer::renderMinMax(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void SelectionBoundsRenderer::renderMinMax(RenderState& renderState, RenderBatch& renderBatch) {
             std::stringstream buffer;
 
-            RenderService renderService(renderContext, renderBatch);
+            RenderService renderService(renderState, renderBatch);
             renderService.setForegroundColor(pref(Preferences::InfoOverlayTextColor));
             renderService.setBackgroundColor(pref(Preferences::WeakInfoOverlayBackgroundColor));
             renderService.setShowOccludedObjects();
 
             buffer << "Min: " << vm::correct(m_bounds.min);
-            renderService.renderString(buffer.str(), MinMaxTextAnchor3D(m_bounds, vm::bbox3::Corner::min, renderContext.camera()));
+            renderService.renderString(buffer.str(), MinMaxTextAnchor3D(m_bounds, vm::bbox3::Corner::min, renderState.camera()));
             buffer.str("");
 
             buffer << "Max: " << vm::correct(m_bounds.max);
-            renderService.renderString(buffer.str(), MinMaxTextAnchor3D(m_bounds, vm::bbox3::Corner::max, renderContext.camera()));
+            renderService.renderString(buffer.str(), MinMaxTextAnchor3D(m_bounds, vm::bbox3::Corner::max, renderState.camera()));
         }
     }
 }

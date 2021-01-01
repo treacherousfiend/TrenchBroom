@@ -26,11 +26,11 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        void Compass3D::doRenderCompass(RenderContext& renderContext, const vm::mat4x4f& transform) {
+        void Compass3D::doRenderCompass(RenderState& renderState, const vm::mat4x4f& transform) {
             PreferenceManager& prefs = PreferenceManager::instance();
-            renderSolidAxis(renderContext, transform,                               prefs.get(Preferences::ZAxisColor));
-            renderSolidAxis(renderContext, transform * vm::mat4x4f::rot_90_y_ccw(), prefs.get(Preferences::XAxisColor));
-            renderSolidAxis(renderContext, transform * vm::mat4x4f::rot_90_x_cw(),  prefs.get(Preferences::YAxisColor));
+            renderSolidAxis(renderState, transform,                               prefs.get(Preferences::ZAxisColor));
+            renderSolidAxis(renderState, transform * vm::mat4x4f::rot_90_y_ccw(), prefs.get(Preferences::XAxisColor));
+            renderSolidAxis(renderState, transform * vm::mat4x4f::rot_90_x_cw(),  prefs.get(Preferences::YAxisColor));
         }
     }
 }

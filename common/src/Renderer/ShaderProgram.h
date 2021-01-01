@@ -28,8 +28,9 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        class ShaderManager;
         class Shader;
+        class OpenGLWrapper;
+        class RenderState;
 
         class ShaderProgram {
         private:
@@ -40,22 +41,24 @@ namespace TrenchBroom {
             bool m_needsLinking;
             mutable UniformVariableCache m_variableCache;
             mutable AttributeLocationCache m_attributeCache;
-            ShaderManager* m_shaderManager;
+            OpenGLWrapper& m_openGLWrapper;
         public:
-            explicit ShaderProgram(ShaderManager* shaderManager, const std::string& name);
+            explicit ShaderProgram(OpenGLWrapper& openGLWrapper, const std::string& name);
             ~ShaderProgram();
 
             void attach(Shader& shader);
             void detach(Shader& shader);
 
-            void activate();
-            void deactivate();
+            void activate(RenderState& renderState);
+            void deactivate(RenderState& renderState);
+
+            void enableAttribute(const std::string& name, size_t size, GLenum type, bool normalized, const size_t stride, const size_t offset);
+            void disableAttribute(const std::string& name);
 
             void set(const std::string& name, bool value);
             void set(const std::string& name, int value);
             void set(const std::string& name, size_t value);
             void set(const std::string& name, float value);
-            void set(const std::string& name, double value);
             void set(const std::string& name, const vm::vec2f& value);
             void set(const std::string& name, const vm::vec3f& value);
             void set(const std::string& name, const vm::vec4f& value);

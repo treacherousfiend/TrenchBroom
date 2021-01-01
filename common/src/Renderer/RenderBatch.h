@@ -27,11 +27,11 @@ namespace TrenchBroom {
         class DirectRenderable;
         class IndexedRenderable;
         class RenderContext;
-        class VboManager;
+        class RenderState;
 
         class RenderBatch {
         private:
-            VboManager& m_vboManager;
+            RenderContext& m_renderContext;
 
             class IndexedRenderableWrapper;
 
@@ -45,7 +45,7 @@ namespace TrenchBroom {
             RenderableList m_batch;
             RenderableList m_oneshots;
         public:
-            explicit RenderBatch(VboManager& vboManager);
+            explicit RenderBatch(RenderContext& renderContext);
             ~RenderBatch();
 
             void add(Renderable* renderable);
@@ -60,13 +60,13 @@ namespace TrenchBroom {
             void addOneShot(DirectRenderable* renderable);
             void addOneShot(IndexedRenderable* renderable);
 
-            void render(RenderContext& renderContext);
+            void render(RenderState& renderState);
         private:
             void doAdd(Renderable* renderable);
 
             void prepareRenderables();
 
-            void renderRenderables(RenderContext& renderContext);
+            void renderRenderables(RenderState& renderContext);
         };
     }
 }

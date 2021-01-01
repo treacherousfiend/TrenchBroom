@@ -29,6 +29,7 @@
 #include "Renderer/FontGlyph.h"
 #include "Renderer/FontGlyphBuilder.h"
 #include "Renderer/FontTexture.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/TextureFont.h"
 
 #include <algorithm>
@@ -36,8 +37,9 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        FreeTypeFontFactory::FreeTypeFontFactory() :
-        m_library(nullptr) {
+        FreeTypeFontFactory::FreeTypeFontFactory(OpenGLWrapper& openGLWrapper) :
+        m_library(nullptr),
+        m_openGLWrapper(openGLWrapper) {
             FT_Error error = FT_Init_FreeType(&m_library);
             if (error != 0) {
                 m_library = nullptr;
@@ -85,7 +87,7 @@ namespace TrenchBroom {
         std::unique_ptr<TextureFont> FreeTypeFontFactory::buildFont(FT_Face face, const unsigned char firstChar, const unsigned char charCount) {
             const Metrics metrics = computeMetrics(face, firstChar, charCount);
 
-            std::unique_ptr<FontTexture> texture = std::make_unique<FontTexture>(charCount, metrics.cellSize, metrics.lineHeight);
+            std::unique_ptr<FontTexture> texture = std::make_unique<FontTexture>(m_openGLWrapper, charCount, metrics.cellSize, metrics.lineHeight);
             FontGlyphBuilder glyphBuilder(metrics.maxAscend, metrics.cellSize, 3, *texture);
 
             FT_GlyphSlot glyph = face->glyph;

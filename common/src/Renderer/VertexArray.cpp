@@ -20,6 +20,7 @@
 #include "VertexArray.h"
 
 #include "Renderer/PrimType.h"
+#include "Renderer/RenderState.h"
 
 #include <cassert>
 
@@ -47,9 +48,9 @@ namespace TrenchBroom {
             return m_prepared;
         }
 
-        void VertexArray::prepare(VboManager& vboManager) {
+        void VertexArray::prepare(RenderContext& renderContext) {
             if (!prepared() && !empty()) {
-                m_holder->prepare(vboManager);
+                m_holder->prepare(renderContext);
             }
             m_prepared = true;
         }
@@ -74,50 +75,54 @@ namespace TrenchBroom {
             m_setup = false;
         }
 
-        void VertexArray::render(const PrimType primType) {
-            render(primType, 0, static_cast<GLsizei>(vertexCount()));
+        void VertexArray::render(RenderState& renderState, const PrimType primType) {
+            render(renderState, primType, 0, static_cast<GLsizei>(vertexCount()));
         }
 
-        void VertexArray::render(const PrimType primType, const GLint index, const GLsizei count) {
+        void VertexArray::render(RenderState& renderState, const PrimType primType, const GLint index, const GLsizei count) {
             assert(prepared());
             if (!m_setup) {
                 if (setup()) {
-                    glAssert(glDrawArrays(toGL(primType), index, count));
+                    renderState.gl().glDrawArrays(toGL(primType), index, count);
                     cleanup();
                 }
             } else {
-                glAssert(glDrawArrays(toGL(primType), index, count));
+                renderState.gl().glDrawArrays(toGL(primType), index, count);
             }
         }
 
-        void VertexArray::render(const PrimType primType, const GLIndices& indices, const GLCounts& counts, const GLint primCount) {
+        void VertexArray::render(RenderState& renderState, const PrimType primType, const GLIndices& indices, const GLCounts& counts, const GLint primCount) {
             assert(prepared());
             if (!m_setup) {
                 if (setup()) {
                     const auto* indexArray = indices.data();
                     const auto* countArray = counts.data();
-                    glAssert(glMultiDrawArrays(toGL(primType), indexArray, countArray, primCount));
+                    for (int i = 0; i < primCount; ++i) {
+                        renderState.gl().glDrawArrays(toGL(primType), indexArray[i], countArray[i]);
+                    }
                     cleanup();
                 }
             } else {
                 const auto* indexArray = indices.data();
                 const auto* countArray = counts.data();
-                glAssert(glMultiDrawArrays(toGL(primType), indexArray, countArray, primCount));
+                for (int i = 0; i < primCount; ++i) {
+                    renderState.gl().glDrawArrays(toGL(primType), indexArray[i], countArray[i]);
+                }
             }
 
         }
 
-        void VertexArray::render(const PrimType primType, const GLIndices& indices, const GLsizei count) {
+        void VertexArray::render(RenderState& renderState, const PrimType primType, const GLIndices& indices, const GLsizei count) {
             assert(prepared());
             if (!m_setup) {
                 if (setup()) {
                     const auto* indexArray = indices.data();
-                    glAssert(glDrawElements(toGL(primType), count, GL_UNSIGNED_INT, indexArray));
+                    renderState.gl().glDrawElements(toGL(primType), count, GL_UNSIGNED_INT, indexArray);
                     cleanup();
                 }
             } else {
                 const auto* indexArray = indices.data();
-                glAssert(glDrawElements(toGL(primType), count, GL_UNSIGNED_INT, indexArray));
+                renderState.gl().glDrawElements(toGL(primType), count, GL_UNSIGNED_INT, indexArray);
             }
         }
 

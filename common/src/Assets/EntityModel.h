@@ -35,6 +35,7 @@ namespace TrenchBroom {
         enum class PrimType;
         class TexturedIndexRangeRenderer;
         class TexturedRenderer;
+        class RenderContext;
     }
 
     namespace Assets {
@@ -189,7 +190,7 @@ namespace TrenchBroom {
              * @param minFilter the minification filter (GL_TEXTURE_MIN_FILTER)
              * @param magFilter the magnification filter (GL_TEXTURE_MIN_FILTER)
              */
-            void prepare(int minFilter, int magFilter);
+            void prepare(Renderer::RenderContext& renderContext, int minFilter, int magFilter);
 
             /**
              * Sets the minification and magnification filters for the skin textures of this surface.
@@ -307,7 +308,7 @@ namespace TrenchBroom {
              * @param minFilter the minification filter (GL_TEXTURE_MIN_FILTER)
              * @param magFilter the magnification filter (GL_TEXTURE_MIN_FILTER)
              */
-            void prepare(int minFilter, int magFilter);
+            void prepare(Renderer::RenderContext& renderContext, int minFilter, int magFilter);
 
             /**
              * Sets the minification and magnification filters for the skin textures of this model.

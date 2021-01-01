@@ -30,6 +30,7 @@
 #include "Renderer/BrushRendererArrays.h"
 #include "Renderer/BrushRendererBrushCache.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RenderState.h"
 
 #include <cassert>
 #include <cstring>
@@ -263,56 +264,56 @@ namespace TrenchBroom {
             }
         }
 
-        void BrushRenderer::render(RenderContext& renderContext, RenderBatch& renderBatch) {
-            renderOpaque(renderContext, renderBatch);
-            renderTransparent(renderContext, renderBatch);
+        void BrushRenderer::render(RenderState& renderState, RenderBatch& renderBatch) {
+            renderOpaque(renderState, renderBatch);
+            renderTransparent(renderState, renderBatch);
         }
 
-        void BrushRenderer::renderOpaque(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void BrushRenderer::renderOpaque(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_allBrushes.empty()) {
                 if (!valid()) {
                     validate();
                 }
-                if (renderContext.showFaces()) {
-                    renderOpaqueFaces(renderBatch);
+                if (renderState.showFaces()) {
+                    renderOpaqueFaces(renderState, renderBatch);
                 }
-                if (renderContext.showEdges() || m_showEdges) {
-                    renderEdges(renderBatch);
+                if (renderState.showEdges() || m_showEdges) {
+                    renderEdges(renderState, renderBatch);
                 }
             }
         }
 
-        void BrushRenderer::renderTransparent(RenderContext& renderContext, RenderBatch& renderBatch) {
+        void BrushRenderer::renderTransparent(RenderState& renderState, RenderBatch& renderBatch) {
             if (!m_allBrushes.empty()) {
                 if (!valid()) {
                     validate();
                 }
-                if (renderContext.showFaces()) {
-                    renderTransparentFaces(renderBatch);
+                if (renderState.showFaces()) {
+                    renderTransparentFaces(renderState, renderBatch);
                 }
             }
         }
 
-        void BrushRenderer::renderOpaqueFaces(RenderBatch& renderBatch) {
+        void BrushRenderer::renderOpaqueFaces(RenderState& renderState, RenderBatch& renderBatch) {
             m_opaqueFaceRenderer.setGrayscale(m_grayscale);
             m_opaqueFaceRenderer.setTint(m_tint);
             m_opaqueFaceRenderer.setTintColor(m_tintColor);
-            m_opaqueFaceRenderer.render(renderBatch);
+            m_opaqueFaceRenderer.render(renderState, renderBatch);
         }
 
-        void BrushRenderer::renderTransparentFaces(RenderBatch& renderBatch) {
+        void BrushRenderer::renderTransparentFaces(RenderState& renderState, RenderBatch& renderBatch) {
             m_transparentFaceRenderer.setGrayscale(m_grayscale);
             m_transparentFaceRenderer.setTint(m_tint);
             m_transparentFaceRenderer.setTintColor(m_tintColor);
             m_transparentFaceRenderer.setAlpha(m_transparencyAlpha);
-            m_transparentFaceRenderer.render(renderBatch);
+            m_transparentFaceRenderer.render(renderState, renderBatch);
         }
 
-        void BrushRenderer::renderEdges(RenderBatch& renderBatch) {
+        void BrushRenderer::renderEdges(RenderState& renderState, RenderBatch& renderBatch) {
             if (m_showOccludedEdges) {
-                m_edgeRenderer.renderOnTop(renderBatch, m_occludedEdgeColor);
+                m_edgeRenderer.renderOnTop(renderState, renderBatch, m_occludedEdgeColor);
             }
-            m_edgeRenderer.render(renderBatch, m_edgeColor);
+            m_edgeRenderer.render(renderState, renderBatch, m_edgeColor);
         }
 
         class BrushRenderer::FilterWrapper : public BrushRenderer::Filter {

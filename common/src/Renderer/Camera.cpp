@@ -345,8 +345,8 @@ namespace TrenchBroom {
             }
         }
 
-        void Camera::renderFrustum(RenderContext& renderContext, VboManager& vboManager, const float size, const Color& color) const {
-            doRenderFrustum(renderContext, vboManager, size, color);
+        void Camera::renderFrustum(RenderState& renderState, const float size, const Color& color) const {
+            doRenderFrustum(renderState, size, color);
         }
 
         float Camera::pickFrustum(const float size, const vm::ray3f& ray) const {

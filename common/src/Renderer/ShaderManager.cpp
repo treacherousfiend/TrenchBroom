@@ -22,6 +22,7 @@
 #include "Ensure.h"
 #include "IO/Path.h"
 #include "IO/SystemPaths.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "Renderer/Shader.h"
 #include "Renderer/ShaderProgram.h"
 #include "Renderer/ShaderConfig.h"
@@ -31,7 +32,9 @@
 
 namespace TrenchBroom {
     namespace Renderer {
-        ShaderManager::ShaderManager() : m_currentProgram(nullptr) {}
+        ShaderManager::ShaderManager(OpenGLWrapper& openGLWrapper) : 
+        m_currentProgram(nullptr),
+        m_openGLWrapper(openGLWrapper) {}
 
         ShaderManager::~ShaderManager() = default;
 
@@ -56,7 +59,7 @@ namespace TrenchBroom {
         }
 
         std::unique_ptr<ShaderProgram> ShaderManager::createProgram(const ShaderConfig& config) {
-            auto program = std::make_unique<ShaderProgram>(this, config.name());
+            auto program = std::make_unique<ShaderProgram>(m_openGLWrapper, config.name());
 
             for (const auto& path : config.vertexShaders()) {
                 Shader& shader = loadShader(path, GL_VERTEX_SHADER);
@@ -78,7 +81,7 @@ namespace TrenchBroom {
             }
 
             const auto shaderPath = IO::SystemPaths::findResourceFile(IO::Path("shader") + IO::Path(name));
-            auto result = m_shaders.emplace(name, std::make_unique<Shader>(shaderPath, type));
+            auto result = m_shaders.emplace(name, std::make_unique<Shader>(m_openGLWrapper, shaderPath, type));
             assert(result.second);
 
             return *(result.first->second);

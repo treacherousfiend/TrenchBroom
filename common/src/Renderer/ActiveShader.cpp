@@ -19,18 +19,30 @@
 
 #include "ActiveShader.h"
 
+#include "Renderer/RenderState.h"
 #include "Renderer/ShaderManager.h"
+#include "Renderer/Transformation.h"
 
 namespace TrenchBroom {
     namespace Renderer {
 
-        ActiveShader::ActiveShader(ShaderManager& shaderManager, const ShaderConfig& shaderConfig) :
-            m_program(shaderManager.program(shaderConfig)) {
-            m_program.activate();
+        ActiveShader::ActiveShader(RenderState& renderState, const ShaderConfig& shaderConfig) :
+            m_program(renderState.shaderManager().program(shaderConfig)),
+            m_renderState(renderState) {
+            m_program.activate(m_renderState);
+            
+            Transformation& transformation = m_renderState.transformation();
+            m_program.set("gl_Projection", transformation.getProjection());
+            m_program.set("gl_View", transformation.getView());
+        }
+
+        void ActiveShader::applyModelTransform() {
+            Transformation& transformation = m_renderState.transformation();
+            m_program.set("gl_Model", transformation.getModel());
         }
 
         ActiveShader::~ActiveShader() {
-            m_program.deactivate();
+            m_program.deactivate(m_renderState);
         }
     }
 }

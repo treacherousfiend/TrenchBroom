@@ -31,6 +31,8 @@ namespace TrenchBroom {
         class ActiveShader;
         template <typename VertexSpec> class IndexRangeMapBuilder;
         class IndexRangeRenderer;
+        class RenderContext;
+        class RenderState;
 
         enum class PrimitiveRendererOcclusionPolicy {
             Hide,
@@ -57,7 +59,7 @@ namespace TrenchBroom {
                 LineRenderAttributes(const Color& color, float lineWidth, PrimitiveRendererOcclusionPolicy occlusionPolicy);
                 bool operator<(const LineRenderAttributes& other) const;
 
-                void render(IndexRangeRenderer& renderer, ActiveShader& shader) const;
+                void render(RenderState& renderState, IndexRangeRenderer& renderer, ActiveShader& shader) const;
             };
 
             using LineMeshMap = std::map<LineRenderAttributes, IndexRangeMapBuilder<Vertex::Type>>;
@@ -75,7 +77,7 @@ namespace TrenchBroom {
                 TriangleRenderAttributes(const Color& color, PrimitiveRendererOcclusionPolicy occlusionPolicy, PrimitiveRendererCullingPolicy cullingPolicy);
                 bool operator<(const TriangleRenderAttributes& other) const;
 
-                void render(IndexRangeRenderer& renderer, ActiveShader& shader) const;
+                void render(RenderState& renderState, IndexRangeRenderer& renderer, ActiveShader& shader) const;
             };
 
             using TriangleMeshMap = std::map<TriangleRenderAttributes, IndexRangeMapBuilder<Vertex::Type>>;
@@ -98,13 +100,13 @@ namespace TrenchBroom {
 
             void renderCylinder(const Color& color, float radius, size_t segments, PrimitiveRendererOcclusionPolicy occlusionPolicy, PrimitiveRendererCullingPolicy cullingPolicy, const vm::vec3f& start, const vm::vec3f& end);
         private:
-            void doPrepareVertices(VboManager& vboManager) override;
-            void prepareLines(VboManager& vboManager);
-            void prepareTriangles(VboManager& vboManager);
+            void doPrepareVertices(RenderContext& renderContext) override;
+            void prepareLines(RenderContext& renderContext);
+            void prepareTriangles(RenderContext& renderContext);
 
-            void doRender(RenderContext& renderContext) override;
-            void renderLines(RenderContext& renderContext);
-            void renderTriangles(RenderContext& renderContext);
+            void doRender(RenderState& renderState) override;
+            void renderLines(RenderState& renderState);
+            void renderTriangles(RenderState& renderState);
         };
     }
 }

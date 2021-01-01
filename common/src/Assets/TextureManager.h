@@ -75,7 +75,7 @@ namespace TrenchBroom {
             const std::vector<TextureCollection>& collections() const;
         private:
             void resetTextureMode();
-            void prepare();
+            void prepare(Renderer::RenderContext& renderContext);
 
             void updateTextures();
         };

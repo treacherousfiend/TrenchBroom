@@ -31,6 +31,10 @@
 #include <vector>
 
 namespace TrenchBroom {
+    namespace Renderer {
+        class RenderContext;
+    }
+
     namespace Assets {
         class TextureCollection;
 
@@ -99,6 +103,8 @@ namespace TrenchBroom {
             // Quake 3 blend function, move to materials
             TextureBlendFunc m_blendFunc;
 
+            Renderer::RenderContext* m_renderContext;
+
             mutable GLuint m_textureId;
             mutable BufferList m_buffers;
         public:
@@ -157,7 +163,7 @@ namespace TrenchBroom {
             void setOverridden(bool overridden);
 
             bool isPrepared() const;
-            void prepare(GLuint textureId, int minFilter, int magFilter);
+            void prepare(Renderer::RenderContext& renderContext, int minFilter, int magFilter);
             void setMode(int minFilter, int magFilter);
 
             void activate() const;

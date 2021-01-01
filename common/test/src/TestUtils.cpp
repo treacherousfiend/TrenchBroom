@@ -190,7 +190,7 @@ namespace TrenchBroom {
     int getComponentOfPixel(const Assets::Texture& texture, const std::size_t x, const std::size_t y, const Component component) {
         const auto format = texture.format();
 
-        ensure(GL_BGRA == format || GL_RGBA == format, "expected GL_BGRA or GL_RGBA");
+        ensure(GL_RGBA == format, "expected GL_RGBA");
 
         std::size_t componentIndex = 0;
         if (format == GL_RGBA) {

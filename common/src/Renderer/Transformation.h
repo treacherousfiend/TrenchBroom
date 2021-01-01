@@ -33,19 +33,19 @@ namespace TrenchBroom {
             MatrixStack m_viewStack;
             MatrixStack m_modelStack;
         public:
-            Transformation(const vm::mat4x4f& projection, const vm::mat4x4f& view, const vm::mat4x4f& model = vm::mat4x4f::identity());
-            ~Transformation();
+            Transformation();
 
             Transformation slice() const;
 
+            const vm::mat4x4f& getProjection();
+            const vm::mat4x4f& getView();
+            const vm::mat4x4f& getModel();
+            
             void pushTransformation(const vm::mat4x4f& projection, const vm::mat4x4f& view, const vm::mat4x4f& model = vm::mat4x4f::identity());
             void popTransformation();
             void pushModelMatrix(const vm::mat4x4f& matrix);
             void replaceAndPushModelMatrix(const vm::mat4x4f& matrix);
             void popModelMatrix();
-        private:
-            void loadProjectionMatrix(const vm::mat4x4f& matrix);
-            void loadModelViewMatrix(const vm::mat4x4f& matrix);
         private:
             Transformation(const Transformation& other);
             Transformation& operator=(const Transformation& other);

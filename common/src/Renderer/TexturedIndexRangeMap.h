@@ -29,6 +29,7 @@ namespace TrenchBroom {
     }
 
     namespace Renderer {
+        class RenderState;
         class TextureRenderFunc;
         class VertexArray;
 
@@ -156,7 +157,7 @@ namespace TrenchBroom {
              *
              * @param vertexArray the vertex array to render with
              */
-            void render(VertexArray& vertexArray);
+            void render(RenderState& renderState, VertexArray& vertexArray);
 
             /**
              * Renders the primitives stored in this index range map using the vertices in the given vertex array.
@@ -166,7 +167,7 @@ namespace TrenchBroom {
              * @param vertexArray the vertex array to render with
              * @param func the texture callbacks
              */
-            void render(VertexArray& vertexArray, TextureRenderFunc& func);
+            void render(RenderState& renderState, VertexArray& vertexArray, TextureRenderFunc& func);
 
             /**
              * Invokes the given function for each primitive stored in this map.

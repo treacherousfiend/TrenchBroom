@@ -20,6 +20,8 @@
 #include "TextureCollection.h"
 
 #include "Ensure.h"
+#include "Renderer/OpenGLWrapper.h"
+#include "Renderer/RenderContext.h"
 
 #include <kdl/vector_utils.h>
 
@@ -44,13 +46,7 @@ namespace TrenchBroom {
         m_path(path),
         m_textures(std::move(textures)) {}
 
-        TextureCollection::~TextureCollection() {
-            if (!m_textureIds.empty()) {
-                glAssert(glDeleteTextures(static_cast<GLsizei>(m_textureIds.size()),
-                                          static_cast<GLuint*>(&m_textureIds.front())));
-                m_textureIds.clear();
-            }
-        }
+        TextureCollection::~TextureCollection() = default;
 
         bool TextureCollection::loaded() const {
             return m_loaded;
@@ -104,21 +100,19 @@ namespace TrenchBroom {
         }
 
         bool TextureCollection::prepared() const {
-            return !m_textureIds.empty();
+            return m_loaded;
         }
 
-        void TextureCollection::prepare(const int minFilter, const int magFilter) {
+        void TextureCollection::prepare(Renderer::RenderContext& renderContext, const int minFilter, const int magFilter) {
             assert(!prepared());
 
-            m_textureIds.resize(textureCount());
             if (textureCount() != 0u) {
-                glAssert(glGenTextures(static_cast<GLsizei>(textureCount()),
-                                       static_cast<GLuint*>(&m_textureIds.front())));
-
                 for (size_t i = 0; i < textureCount(); ++i) {
                     Texture& texture = m_textures[i];
-                    texture.prepare(m_textureIds[i], minFilter, magFilter);
+                    texture.prepare(renderContext, minFilter, magFilter);
                 }
+
+                m_loaded = true;
             }
         }
 

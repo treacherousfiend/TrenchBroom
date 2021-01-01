@@ -164,10 +164,10 @@ namespace TrenchBroom {
             }
         }
 
-        void EntityModelManager::prepare(Renderer::VboManager& vboManager) {
+        void EntityModelManager::prepare(Renderer::RenderContext& renderContext) {
             resetTextureMode();
-            prepareModels();
-            prepareRenderers(vboManager);
+            prepareModels(renderContext);
+            prepareRenderers(renderContext);
         }
 
         void EntityModelManager::resetTextureMode() {
@@ -180,16 +180,16 @@ namespace TrenchBroom {
             }
         }
 
-        void EntityModelManager::prepareModels() {
+        void EntityModelManager::prepareModels(Renderer::RenderContext& renderContext) {
             for (auto* model : m_unpreparedModels) {
-                model->prepare(m_minFilter, m_magFilter);
+                model->prepare(renderContext, m_minFilter, m_magFilter);
             }
             m_unpreparedModels.clear();
         }
 
-        void EntityModelManager::prepareRenderers(Renderer::VboManager& vboManager) {
+        void EntityModelManager::prepareRenderers(Renderer::RenderContext& renderContext) {
             for (auto* renderer : m_unpreparedRenderers) {
-                renderer->prepare(vboManager);
+                renderer->prepare(renderContext);
             }
             m_unpreparedRenderers.clear();
         }

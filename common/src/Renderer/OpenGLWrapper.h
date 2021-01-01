@@ -1,5 +1,5 @@
 /*
- Copyright (C) 2010-2017 Kristian Duske
+ Copyright (C) 2020 Marc Schraffenberger
 
  This file is part of TrenchBroom.
 
@@ -17,25 +17,28 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "IndexRangeRenderer.h"
+#pragma once
+
+#include "Renderer/GL.h"
+
+#include <QOpenGLFunctions>
+#include <QOpenGLDebugMessage>
+
+class QOpenGLDebugLogger;
 
 namespace TrenchBroom {
     namespace Renderer {
-        IndexRangeRenderer::IndexRangeRenderer() {}
+        class OpenGLWrapper : public QOpenGLFunctions {
+        private:
+            QOpenGLDebugLogger* m_debugLogger;
 
-        IndexRangeRenderer::IndexRangeRenderer(const VertexArray& vertexArray, const IndexRangeMap& indexArray) :
-        m_vertexArray(vertexArray),
-        m_indexArray(indexArray) {}
-
-        void IndexRangeRenderer::prepare(RenderContext& renderContext) {
-            m_vertexArray.prepare(renderContext);
-        }
-
-        void IndexRangeRenderer::render(RenderState& renderState) {
-            if (m_vertexArray.setup()) {
-                m_indexArray.render(renderState, m_vertexArray);
-                m_vertexArray.cleanup();
-            }
-        }
+        public:
+            OpenGLWrapper(GLContext& glContext);
+            ~OpenGLWrapper();
+            
+            void initialize();
+        private:
+            void onDebugLogMessage(QOpenGLDebugMessage message);
+        };
     }
 }

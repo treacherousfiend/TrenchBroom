@@ -211,24 +211,6 @@ namespace TrenchBroom {
             void addQuads(const VertexList& vertices) {
                 add(Renderer::PrimType::Quads, m_vertexListBuilder.addQuads(vertices));
             }
-
-            /**
-             * Adds a quad strip using the positions of the vertices in the given list.
-             *
-             * @param vertices the vertex positions
-             */
-            void addQuadStrip(const VertexList& vertices) {
-                add(Renderer::PrimType::QuadStrip, m_vertexListBuilder.addQuadStrip(vertices));
-            }
-
-            /**
-             * Adds a polygon with the given corners.
-             *
-             * @param vertices the croner positions
-             */
-            void addPolygon(const VertexList& vertices) {
-                add(Renderer::PrimType::Polygon, m_vertexListBuilder.addPolygon(vertices));
-            }
         private:
             void add(const PrimType primType, const IndexData& data) {
                 m_indexRange.add(primType, data.index, data.count);
