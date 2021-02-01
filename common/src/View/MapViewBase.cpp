@@ -814,57 +814,58 @@ namespace TrenchBroom {
             auto document = kdl::mem_lock(m_document);
             const Grid& grid = document->grid();
 
-            Renderer::RenderContext renderContext(doGetRenderMode(), doGetCamera(), fontManager(), shaderManager());
-            renderContext.setShowTextures(pref(Preferences::FaceRenderMode) == Preferences::faceRenderModeTextured());
-            renderContext.setShowFaces(pref(Preferences::FaceRenderMode) != Preferences::faceRenderModeSkip());
-            renderContext.setShowEdges(pref(Preferences::ShowEdges));
-            renderContext.setShadeFaces(pref(Preferences::ShadeFaces));
-            renderContext.setShowPointEntities(pref(Preferences::ShowPointEntities));
-            renderContext.setShowPointEntityModels(pref(Preferences::ShowPointEntityModels));
-            renderContext.setShowEntityClassnames(pref(Preferences::ShowEntityClassnames));
-            renderContext.setShowGroupBounds(pref(Preferences::ShowGroupBounds));
-            renderContext.setShowBrushEntityBounds(pref(Preferences::ShowBrushEntityBounds));
-            renderContext.setShowPointEntityBounds(pref(Preferences::ShowPointEntityBounds));
-            renderContext.setShowFog(pref(Preferences::ShowFog));
-            renderContext.setShowGrid(grid.visible());
-            renderContext.setGridSize(grid.actualSize());
-            renderContext.setSoftMapBounds(pref(Preferences::ShowSoftMapBounds)
+            Renderer::RenderState renderState(doGetRenderMode(), doGetCamera(), renderContext());
+            renderState.setShowTextures(pref(Preferences::FaceRenderMode) == Preferences::faceRenderModeTextured());
+            renderState.setShowFaces(pref(Preferences::FaceRenderMode) != Preferences::faceRenderModeSkip());
+            renderState.setShowEdges(pref(Preferences::ShowEdges));
+            renderState.setShadeFaces(pref(Preferences::ShadeFaces));
+            renderState.setShowPointEntities(pref(Preferences::ShowPointEntities));
+            renderState.setShowPointEntityModels(pref(Preferences::ShowPointEntityModels));
+            renderState.setShowEntityClassnames(pref(Preferences::ShowEntityClassnames));
+            renderState.setShowGroupBounds(pref(Preferences::ShowGroupBounds));
+            renderState.setShowBrushEntityBounds(pref(Preferences::ShowBrushEntityBounds));
+            renderState.setShowPointEntityBounds(pref(Preferences::ShowPointEntityBounds));
+            renderState.setShowFog(pref(Preferences::ShowFog));
+            renderState.setShowGrid(grid.visible());
+            renderState.setGridSize(grid.actualSize());
+            renderState.setSoftMapBounds(pref(Preferences::ShowSoftMapBounds)
                 ? vm::bbox3f(document->softMapBounds().bounds.value_or(vm::bbox3()))
                 : vm::bbox3f());
 
-            setupGL(renderContext);
-            setRenderOptions(renderContext);
+            setupGL(renderState);
+            setRenderOptions(renderState);
 
             Renderer::RenderBatch renderBatch(vboManager());
 
-            doRenderGrid(renderContext, renderBatch);
-            doRenderMap(m_renderer, renderContext, renderBatch);
-            doRenderTools(m_toolBox, renderContext, renderBatch);
-            doRenderExtras(renderContext, renderBatch);
+            doRenderGrid(renderState, renderBatch);
+            doRenderMap(m_renderer, renderState, renderBatch);
+            doRenderTools(m_toolBox, renderState, renderBatch);
+            doRenderExtras(renderState, renderBatch);
 
-            renderCoordinateSystem(renderContext, renderBatch);
-            renderSoftMapBounds(renderContext, renderBatch);
-            renderPointFile(renderContext, renderBatch);
-            renderPortalFile(renderContext, renderBatch);
+            renderCoordinateSystem(renderState, renderBatch);
+            renderSoftMapBounds(renderState, renderBatch);
+            renderPointFile(renderState, renderBatch);
+            renderPortalFile(renderState, renderBatch);
             renderCompass(renderBatch);
-            renderFPS(renderContext, renderBatch);
+            renderFPS(renderState, renderBatch);
 
-            renderBatch.render(renderContext);
+            renderBatch.render(renderState);
         }
 
-        void MapViewBase::setupGL(Renderer::RenderContext& context) {
-            const Renderer::Camera::Viewport& viewport = context.camera().viewport();
+        void MapViewBase::setupGL(Renderer::RenderState& state) {
+            Renderer::OpenGLWrapper& gl = state.gl();
+            const Renderer::Camera::Viewport& viewport = state.camera().viewport();
             const qreal r = devicePixelRatioF();
             const int x = static_cast<int>(viewport.x * r);
             const int y = static_cast<int>(viewport.y * r);
             const int width = static_cast<int>(viewport.width * r);
             const int height = static_cast<int>(viewport.height * r);
-            glAssert(glViewport(x, y, width, height))
+            gl.glViewport(x, y, width, height))
 
-            glAssert(glEnable(GL_MULTISAMPLE))
-            glAssert(glEnable(GL_BLEND))
-            glAssert(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA))
-            glAssert(glShadeModel(GL_SMOOTH))
+            gl.glEnable(GL_MULTISAMPLE);
+            gl.glEnable(GL_BLEND);
+            gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            gl.glShadeModel(GL_SMOOTH);
         }
 
         void MapViewBase::renderCoordinateSystem(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) {
@@ -925,15 +926,15 @@ namespace TrenchBroom {
             }
         }
 
-        void MapViewBase::renderCompass(Renderer::RenderBatch& renderBatch) {
+        void MapViewBase::renderCompass(Renderer::RenderState& renderState, Renderer::RenderBatch& renderBatch) {
             if (m_compass != nullptr) {
-                m_compass->render(renderBatch);
+                m_compass->render(renderState, renderBatch);
             }
         }
 
-        void MapViewBase::renderFPS(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) {
+        void MapViewBase::renderFPS(Renderer::RenderState& renderState, Renderer::RenderBatch& renderBatch) {
             if (pref(Preferences::ShowFPS)) {
-                Renderer::RenderService renderService(renderContext, renderBatch);
+                Renderer::RenderService renderService(renderState, renderBatch);
 
                 renderService.renderHeadsUp(m_currentFPS);
             }

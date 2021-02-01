@@ -225,16 +225,6 @@ namespace TrenchBroom {
             }
 
             /**
-             * Adds a textured quad strip using the positions of the vertices in the given list.
-             *
-             * @param texture the texture to use
-             * @param vertices the vertex positions
-             */
-            void addQuadStrip(const Texture* texture, const VertexList& vertices) {
-                add(texture, Renderer::PrimType::QuadStrip, m_vertexListBuilder.addQuadStrip(vertices));
-            }
-
-            /**
              * Adds a textured polygon with the given corners.
              *
              * @param texture the texture to use

@@ -66,7 +66,7 @@ namespace TrenchBroom {
             void clear();
 
             void setTextureMode(int minFilter, int magFilter);
-            void commitChanges();
+            void commitChanges(Renderer::RenderContext& renderContext);
 
             const Texture* texture(const std::string& name) const;
             Texture* texture(const std::string& name);

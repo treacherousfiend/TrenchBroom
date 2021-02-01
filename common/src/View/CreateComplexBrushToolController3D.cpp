@@ -265,12 +265,12 @@ namespace TrenchBroom {
             }
         }
 
-        void CreateComplexBrushToolController3D::doRender(const InputState& inputState, Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) {
-            m_tool->render(renderContext, renderBatch);
+        void CreateComplexBrushToolController3D::doRender(const InputState& inputState, Renderer::RenderState& renderState, Renderer::RenderBatch& renderBatch) {
+            m_tool->render(renderState, renderBatch);
 
             const Model::Polyhedron3& polyhedron = m_tool->polyhedron();
             if (!polyhedron.empty()) {
-                Renderer::RenderService renderService(renderContext, renderBatch);
+                Renderer::RenderService renderService(renderState, renderBatch);
                 renderService.setForegroundColor(pref(Preferences::HandleColor));
                 renderService.setLineWidth(2.0f);
 

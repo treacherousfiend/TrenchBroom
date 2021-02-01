@@ -265,7 +265,7 @@ namespace TrenchBroom {
             void initializeGL() override;
         private: // implement RenderView interface
             bool doShouldRenderFocusIndicator() const override;
-            void doRender() override;
+            void doRender(Renderer::RenderContext& renderContext) override;
 
             void setupGL(Renderer::RenderContext& renderContext);
             void renderCoordinateSystem(Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);

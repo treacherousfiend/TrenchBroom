@@ -131,9 +131,9 @@ namespace TrenchBroom {
             m_resetTextureMode = true;
         }
 
-        void TextureManager::commitChanges() {
+        void TextureManager::commitChanges(Renderer::RenderContext& renderContext) {
             resetTextureMode();
-            prepare();
+            prepare(renderContext);
             m_toRemove.clear();
         }
 

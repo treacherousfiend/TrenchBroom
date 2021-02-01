@@ -31,10 +31,11 @@ namespace TrenchBroom {
             LineStrip,
             LineLoop,
             TriangleFan,
-            TriangleStrip
+            TriangleStrip,
+            Polygon
         };
 
-        constexpr std::size_t PrimTypeCount = 10u;
+        constexpr std::size_t PrimTypeCount = 9u;
         constexpr PrimType PrimTypeValues[PrimTypeCount] = {
             PrimType::Points,
             PrimType::Lines,
@@ -43,7 +44,8 @@ namespace TrenchBroom {
             PrimType::LineStrip,
             PrimType::LineLoop,
             PrimType::TriangleFan,
-            PrimType::TriangleStrip};
+            PrimType::TriangleStrip,
+            PrimType::Polygon};
 
         /**
          * Maps the given primitive type to its corresponding OpenGL enum.

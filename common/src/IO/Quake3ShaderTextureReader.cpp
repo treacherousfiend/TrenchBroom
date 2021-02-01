@@ -68,8 +68,8 @@ namespace TrenchBroom {
                 const auto& stage = shader.stages.front();
                 if (stage.blendFunc.enable()) {
                     texture.setBlendFunc(
-                        glGetEnum(stage.blendFunc.srcFactor),
-                        glGetEnum(stage.blendFunc.destFactor)
+                        Renderer::glGetEnum(stage.blendFunc.srcFactor),
+                        Renderer::glGetEnum(stage.blendFunc.destFactor)
                     );
                 } else {
                     texture.disableBlend();

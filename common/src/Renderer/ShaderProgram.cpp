@@ -38,7 +38,7 @@ namespace TrenchBroom {
     namespace Renderer {
         ShaderProgram::ShaderProgram(OpenGLWrapper& openGLWrapper, const std::string& name) :
         m_name(name),
-        m_programId(glCreateProgram()),
+        m_programId(openGLWrapper.glCreateProgram()),
         m_needsLinking(true),
         m_openGLWrapper(openGLWrapper) {
             if (m_programId == 0) {

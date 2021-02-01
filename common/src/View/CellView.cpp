@@ -20,6 +20,8 @@
 #include "CellView.h"
 
 #include "Preferences.h"
+#include "Renderer/RenderContext.h"
+#include "Renderer/OpenGLWrapper.h"
 #include "View/CellLayout.h"
 #include "View/RenderView.h"
 
@@ -275,7 +277,7 @@ namespace TrenchBroom {
             return QRect(QPoint(0, top), size());
         }
 
-        void CellView::doRender() {
+        void CellView::doRender(Renderer::RenderContext& renderContext) {
             validate();
             if (!m_layoutInitialized) {
                 initLayout();
@@ -284,9 +286,9 @@ namespace TrenchBroom {
             const qreal r = devicePixelRatioF();
             const auto viewportWidth = static_cast<int>(width() * r);
             const auto viewportHeight = static_cast<int>(height() * r);
-            glAssert(glViewport(0, 0, viewportWidth, viewportHeight))
+            renderContext.gl().glViewport(0, 0, viewportWidth, viewportHeight);
 
-            setupGL();
+            setupGL(renderContext);
 
             // NOTE: These are in points, while the glViewport call above is
             // in pixels
@@ -297,14 +299,18 @@ namespace TrenchBroom {
             doRender(m_layout, y, h);
         }
 
-        void CellView::setupGL() {
-            glAssert(glEnable(GL_MULTISAMPLE))
-            glAssert(glEnable(GL_BLEND))
-            glAssert(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA))
-            glAssert(glEnable(GL_CULL_FACE))
-            glAssert(glEnable(GL_DEPTH_TEST))
-            glAssert(glDepthFunc(GL_LEQUAL))
-            glAssert(glShadeModel(GL_SMOOTH))
+        void CellView::setupGL(Renderer::RenderContext& renderContext) {
+            Renderer::OpenGLWrapper& gl = renderContext.gl();
+
+            gl.glEnable(GL_MULTISAMPLE);
+            gl.glEnable(GL_BLEND);
+            gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            gl.glEnable(GL_CULL_FACE);
+            gl.glEnable(GL_DEPTH_TEST);
+            gl.glDepthFunc(GL_LEQUAL);
+
+            // GLESTODO: replace this?
+            //gl.glShadeModel(GL_SMOOTH);
         }
 
         void CellView::doClear() {}

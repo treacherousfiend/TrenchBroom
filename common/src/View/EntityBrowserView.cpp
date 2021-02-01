@@ -299,7 +299,7 @@ namespace TrenchBroom {
             shader.set("Brightness", pref(Preferences::Brightness));
             shader.set("GrayScale", false);
 
-            glAssert(glFrontFace(GL_CW));
+            gl.glFrontFace(GL_CW);
 
             m_entityModelManager.prepare(vboManager());
 

@@ -100,8 +100,8 @@ namespace TrenchBroom {
             bool updateTooltip(QHelpEvent* event);
         private:
             QRect visibleRect() const;
-            void doRender() override;
-            void setupGL();
+            void doRender(Renderer::RenderContext& renderContext) override;
+            void setupGL(Renderer::RenderContext& renderContext);
 
             virtual void doInitLayout(Layout& layout) = 0;
             virtual void doReloadLayout(Layout& layout) = 0;

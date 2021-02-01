@@ -105,9 +105,9 @@ namespace TrenchBroom {
 
                 m_currentFPS = std::string("Avg FPS: ") + std::to_string(avgFps) + " Max time between frames: " +
                     std::to_string(maxFrameTime) + "ms. " +
-                    std::to_string(m_glContext->vboManager().currentVboCount()) + " current VBOs (" +
-                    std::to_string(m_glContext->vboManager().peakVboCount()) + " peak) totalling " +
-                    std::to_string(m_glContext->vboManager().currentVboSize() / 1024u) + " KiB";
+                    std::to_string(renderContext().vboManager().currentVboCount()) + " current VBOs (" +
+                    std::to_string(renderContext().vboManager().peakVboCount()) + " peak) totalling " +
+                    std::to_string(renderContext().vboManager().currentVboSize() / 1024u) + " KiB";
 
 
             });
@@ -174,16 +174,21 @@ namespace TrenchBroom {
 
 
        Renderer::VboManager& RenderView::vboManager() {
-            return m_glContext->vboManager();
+            return renderContext().vboManager();
         }
 
         Renderer::FontManager& RenderView::fontManager() {
-            return m_glContext->fontManager();
+            return renderContext().fontManager();
         }
 
         Renderer::ShaderManager& RenderView::shaderManager() {
-            return m_glContext->shaderManager();
+            return renderContext().shaderManager();
         }
+
+        // GLESTODO: maybe not?
+//        Renderer::RenderContext& RenderView::renderContext() {
+//            return m_glContext->renderContext();
+//        }
 
         int RenderView::depthBits() const {
             const auto format = this->context()->format();
@@ -204,7 +209,7 @@ namespace TrenchBroom {
             doUpdateViewport(0, 0, w, h);
         }
 
-        void RenderView::render() {
+        void RenderView::render(Renderer::RenderContext& renderContext) {
             processInput();
             clearBackground();
             doRender();
@@ -215,17 +220,20 @@ namespace TrenchBroom {
             m_eventRecorder.processEvents(*this);
         }
 
-        void RenderView::clearBackground() {
+        void RenderView::clearBackground(Renderer::RenderContext& renderContext) {
+            Renderer::OpenGLWrapper& gl = renderContext.gl();
             PreferenceManager& prefs = PreferenceManager::instance();
             const Color& backgroundColor = prefs.get(Preferences::BackgroundColor);
 
-            glAssert(glClearColor(backgroundColor.r(), backgroundColor.g(), backgroundColor.b(), backgroundColor.a()));
-            glAssert(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT))
+            gl.glClearColor(backgroundColor.r(), backgroundColor.g(), backgroundColor.b(), backgroundColor.a());
+            gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         }
 
-        void RenderView::renderFocusIndicator() {
+        void RenderView::renderFocusIndicator(Renderer::RenderContext& renderContext) {
             if (!doShouldRenderFocusIndicator() || !hasFocus())
                 return;
+
+            Renderer::OpenGLWrapper& gl = renderContext.gl();
 
             const Color& outer = m_focusColor;
             const Color& inner = m_focusColor;
@@ -233,14 +241,14 @@ namespace TrenchBroom {
             const qreal r = devicePixelRatioF();
             const auto w = static_cast<float>(width() * r);
             const auto h = static_cast<float>(height() * r);
-            glAssert(glViewport(0, 0, static_cast<int>(w), static_cast<int>(h)));
+            gl.glViewport(0, 0, static_cast<int>(w), static_cast<int>(h));
 
             const auto t = 1.0f;
 
             const auto projection = vm::ortho_matrix(-1.0f, 1.0f, 0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h));
             Renderer::Transformation transformation(projection, vm::mat4x4f::identity());
 
-            glAssert(glDisable(GL_DEPTH_TEST));
+            gl.glDisable(GL_DEPTH_TEST);
 
             using Vertex = Renderer::GLVertexTypes::P3C4::Vertex;
             auto array = Renderer::VertexArray::move(std::vector<Vertex>({
@@ -269,12 +277,12 @@ namespace TrenchBroom {
                 Vertex(vm::vec3f(t, h-t, 0.0f), inner)
             }));
 
-            array.prepare(vboManager());
+            array.prepare(renderContext);
             array.render(Renderer::PrimType::Quads);
-            glAssert(glEnable(GL_DEPTH_TEST));
+            gl.glEnable(GL_DEPTH_TEST);
         }
 
-        bool RenderView::doInitializeGL() {
+        bool RenderView::doInitializeGL(Renderer::RenderContext& renderContext) {
             return m_glContext->initialize();
         }
 

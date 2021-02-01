@@ -18,8 +18,10 @@
  */
 
 #include "Texture.h"
+
 #include "Assets/TextureBuffer.h"
 #include "Assets/TextureCollection.h"
+#include "Ensure.h"
 #include "Renderer/GL.h"
 #include "Renderer/OpenGLWrapper.h"
 #include "Renderer/RenderContext.h"
@@ -90,7 +92,7 @@ namespace TrenchBroom {
 
         Texture::~Texture() {
             if (m_textureId != 0) {
-                m_renderContext->gl().glDeleteTextures(1, &m_texureId);
+                m_renderContext->gl().glDeleteTextures(1, &m_textureId);
             }
         }
 

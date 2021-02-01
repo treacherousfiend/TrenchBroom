@@ -35,6 +35,7 @@
 namespace TrenchBroom {
     namespace Renderer {
         class FontManager;
+        class RenderContext;
         class ShaderManager;
         class VboManager;
     }
@@ -73,6 +74,8 @@ namespace TrenchBroom {
             Renderer::VboManager& vboManager();
             Renderer::FontManager& fontManager();
             Renderer::ShaderManager& shaderManager();
+            // GLESTODO: maybe not?
+//            Renderer::RenderContext& renderContext();
 
             int depthBits() const;
             bool multisample() const;
@@ -81,17 +84,17 @@ namespace TrenchBroom {
             void paintGL() override;
             void resizeGL(int w, int h) override;
         private:
-            void render();
+            void render(Renderer::RenderContext& renderContext);
             void processInput();
-            void clearBackground();
-            void renderFocusIndicator();
+            void clearBackground(Renderer::RenderContext& renderContext);
+            void renderFocusIndicator(Renderer::RenderContext& renderContext);
         protected:
             // called by initializeGL by default
-            virtual bool doInitializeGL();
+            virtual bool doInitializeGL(Renderer::RenderContext& renderContext);
         private:
             virtual void doUpdateViewport(int x, int y, int width, int height);
             virtual bool doShouldRenderFocusIndicator() const = 0;
-            virtual void doRender() = 0;
+            virtual void doRender(Renderer::RenderContext& renderContext) = 0;
         };
     }
 }
