@@ -20,24 +20,17 @@
  */
 
 attribute vec4 position;
-attribute vec2 texCoord;
-attribute vec3 normal;
+attribute vec3 defaultColor;
 attribute float flags;
 
-/**
- * Used if ApplyTexture is false
- */
-uniform vec4 Color;
-uniform vec3 CameraPosition;
+varying vec4 worldCoordinates;
+varying vec3 vertexColor;
 
-varying vec2 texCoordVarying;
-varying vec4 modelCoordinates;
-varying vec3 modelNormal;
-varying vec4 faceColor;
-varying vec3 viewVector;
-varying float GrayScale;
-varying float ApplyTinting;
-varying vec4 TintColor;
+/**
+ * We draw all of the lines twice, once with depth test/depth write enabled,
+ * and once with them disabled and this set to true.
+ */
+uniform bool OnTop;
 
 // flags parsing
 
@@ -69,30 +62,31 @@ flagsStruct parseFlags(float v_float) {
 }
 
 void main(void) {
-    flagsStruct faceFlags = parseFlags(flags);
-
     gl_Position = gl_ProjectionMatrix * gl_ModelViewMatrix * position;
-    texCoordVarying = texCoord;
-    modelCoordinates = position;
-    modelNormal = normal;
-    faceColor = Color;
-    viewVector = CameraPosition - position.xyz;
+    
+    // Brushes are assumed to be in world space already (Face.vertsh also assumes this)
+    worldCoordinates = position;
 
-    if (faceFlags.hidden) {
+    flagsStruct edgeFlags = parseFlags(flags);
+
+    if (edgeFlags.hidden) {
         gl_Position = vec4(0.0, 0.0, 0.0, 0.0);
     }
 
-    if (faceFlags.locked) {
-        GrayScale = 1.0;
-        ApplyTinting = 1.0;
-        TintColor = vec4(0.0, 0.0, 1.0, 1.0);
-    } else if (faceFlags.selected) {
-        GrayScale = 0.0;
-        ApplyTinting = 1.0;
-        TintColor = vec4(1.0, 0.0, 0.0, 1.0);
+    // only selected edges get drawn on top
+    if (OnTop && !edgeFlags.selected) {
+        // We assume edgeFlags are the same for both ends of each line.
+        // Discard the edge by mapping both vertices to 0, 0, 0
+        gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+    }
+
+    // set the line color
+
+    if (edgeFlags.locked) {
+        vertexColor = vec3(0.0, 0.0, 1.0);
+    } else if (edgeFlags.selected) {
+        vertexColor = vec3(1.0, 0.0, 0.0);
     } else {
-        GrayScale = 0.0;
-        ApplyTinting = 0.0;
-        TintColor = vec4(0.0, 0.0, 0.0, 1.0);
+        vertexColor = defaultColor;
     }
 }

@@ -38,7 +38,6 @@
 #include "Model/TagVisitor.h"
 #include "Model/TexCoordSystem.h"
 #include "Model/WorldNode.h"
-#include "Renderer/BrushRendererBrushCache.h"
 
 #include <kdl/overload.h>
 #include <kdl/result.h>
@@ -65,7 +64,6 @@ namespace TrenchBroom {
         const HitType::Type BrushNode::BrushHitType = HitType::freeType();
 
         BrushNode::BrushNode(Brush brush) :
-        m_brushRendererBrushCache(std::make_unique<Renderer::BrushRendererBrushCache>()),
         m_brush(std::move(brush)) {
             updateSelectedFaceCount();
         }
@@ -105,7 +103,6 @@ namespace TrenchBroom {
             
             updateSelectedFaceCount();
             invalidateIssues();
-            invalidateVertexCache();
         }
 
         bool BrushNode::hasSelectedFaces() const {
@@ -130,7 +127,6 @@ namespace TrenchBroom {
             m_brush.face(faceIndex).setTexture(texture);
             
             invalidateIssues();
-            invalidateVertexCache();
         }
 
         void BrushNode::updateSelectedFaceCount() {
@@ -242,7 +238,6 @@ namespace TrenchBroom {
                     [&](Brush&& brush) {
                         m_brush = std::move(brush);
                         invalidateIssues();
-                        invalidateVertexCache();
 
                         return kdl::result<void, TransformError>::success();
                     },
@@ -270,14 +265,6 @@ namespace TrenchBroom {
                 [&](const EntityNode* entity) { return m_brush.intersects(entity->logicalBounds()); },
                 [&](const BrushNode* brush)   { return m_brush.intersects(brush->brush()); }
             ));
-        }
-
-        void BrushNode::invalidateVertexCache() {
-            m_brushRendererBrushCache->invalidateVertexCache();
-        }
-
-        Renderer::BrushRendererBrushCache& BrushNode::brushRendererBrushCache() const {
-            return *m_brushRendererBrushCache;
         }
 
         void BrushNode::initializeTags(TagManager& tagManager) {

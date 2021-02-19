@@ -43,10 +43,6 @@ namespace TrenchBroom {
         class Texture;
     }
     
-    namespace Renderer {
-        class BrushRendererBrushCache;
-    }
-
     namespace Model {
         class BrushFace;
         class GroupNode;
@@ -61,7 +57,6 @@ namespace TrenchBroom {
             using VertexList = BrushVertexList;
             using EdgeList = BrushEdgeList;
         private:
-            mutable std::unique_ptr<Renderer::BrushRendererBrushCache> m_brushRendererBrushCache; // unique_ptr for breaking header dependencies
             Brush m_brush; // must be destroyed before the brush renderer cache
             size_t m_selectedFaceCount = 0u;
         public:
@@ -120,12 +115,6 @@ namespace TrenchBroom {
 
             bool doContains(const Node* node) const override;
             bool doIntersects(const Node* node) const override;
-        public: // renderer cache
-            /**
-             * Only exposed to be called by BrushFace
-             */
-            void invalidateVertexCache();
-            Renderer::BrushRendererBrushCache& brushRendererBrushCache() const;
         private: // implement Taggable interface
         public:
             void initializeTags(TagManager& tagManager) override;
