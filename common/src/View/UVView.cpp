@@ -187,6 +187,10 @@ namespace TrenchBroom {
             return false;
         }
 
+        const Color& UVView::getBackgroundColor() {
+            return pref(Preferences::BrowserBackgroundColor);
+        }
+
         void UVView::setupGL(Renderer::RenderContext& renderContext) {
             const Renderer::Camera::Viewport& viewport = renderContext.camera().viewport();
             const qreal r = devicePixelRatioF();
@@ -197,7 +201,11 @@ namespace TrenchBroom {
 
             glAssert(glViewport(x, y, width, height))
 
-            glAssert(glEnable(GL_MULTISAMPLE))
+            if (pref(Preferences::EnableMSAA)) {
+                glAssert(glEnable(GL_MULTISAMPLE))
+            } else {
+                glAssert(glDisable(GL_MULTISAMPLE))
+            }
             glAssert(glEnable(GL_BLEND))
             glAssert(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA))
             glAssert(glShadeModel(GL_SMOOTH))
@@ -337,7 +345,7 @@ namespace TrenchBroom {
             ToolBoxConnector::processEvent(event);
         }
 
-        PickRequest UVView::doGetPickRequest(const int x, const int y) const {
+        PickRequest UVView::doGetPickRequest(const float x, const float y) const {
             return PickRequest(vm::ray3(m_camera.pickRay(x, y)), m_camera);
         }
 

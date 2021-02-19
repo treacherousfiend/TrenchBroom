@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_ModelUtils
-#define TrenchBroom_ModelUtils
+#pragma once
 
 #include "FloatType.h"
 #include "Model/Node.h"
@@ -26,6 +25,7 @@
 #include <vecmath/bbox.h>
 
 #include <map>
+#include <memory>
 #include <vector>
 
 namespace TrenchBroom {
@@ -40,6 +40,10 @@ namespace TrenchBroom {
         std::vector<LayerNode*> findContainingLayersUserSorted(const std::vector<Node*>& nodes);
 
         GroupNode* findContainingGroup(Node* node);
+        const GroupNode* findContainingGroup(const Node* node);
+
+        GroupNode* findContainingLinkedGroup(Node& node);
+        const GroupNode* findContainingLinkedGroup(const Node& node);
 
         /**
          * Searches the ancestor chain of `node` for the outermost closed group and returns
@@ -47,10 +51,14 @@ namespace TrenchBroom {
          */
         GroupNode* findOutermostClosedGroup(Node* node);
 
+        std::vector<Model::GroupNode*> findLinkedGroups(Model::WorldNode& worldNode, const std::string& linkedGroupId);
+
         std::vector<Node*> collectParents(const std::vector<Node*>& nodes);
         std::vector<Node*> collectParents(const std::map<Node*, std::vector<Node*>>& nodes);
+        std::vector<Node*> collectParents(const std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>& nodes);
 
         std::vector<Node*> collectChildren(const std::map<Node*, std::vector<Node*>>& nodes);
+        std::vector<Node*> collectChildren(const std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>& nodes);
         std::vector<Node*> collectDescendants(const std::vector<Node*>& nodes);
         std::map<Node*, std::vector<Node*>> parentChildrenMap(const std::vector<Node*>& nodes);
 
@@ -75,4 +83,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_ModelUtils) */

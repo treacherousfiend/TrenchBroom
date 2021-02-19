@@ -30,6 +30,9 @@
 #include "Model/WorldNode.h"
 
 #include <kdl/overload.h>
+#include <kdl/string_format.h>
+#include <kdl/string_utils.h>
+#include <kdl/vector_utils.h>
 
 #include <vector>
 
@@ -37,9 +40,9 @@ namespace TrenchBroom {
     namespace IO {
         static void doWriteNodes(NodeSerializer& serializer, const std::vector<Model::Node*>& nodes, const Model::Node* parent = nullptr) {
             auto parentStack = std::vector<const Model::Node*>{ parent };
-            const auto parentAttributes = [&]() {
+            const auto parentProperties = [&]() {
                 assert(!parentStack.empty());
-                return serializer.parentAttributes(parentStack.back());
+                return serializer.parentProperties(parentStack.back());
             };
 
             for (const auto* node : nodes) {
@@ -47,14 +50,20 @@ namespace TrenchBroom {
                     [] (const Model::WorldNode*) {},
                     [] (const Model::LayerNode*) {},
                     [&](auto&& thisLambda, const Model::GroupNode* group) {
-                        serializer.group(group, parentAttributes());
+                        serializer.group(group, parentProperties());
 
                         parentStack.push_back(group);
                         group->visitChildren(thisLambda);
                         parentStack.pop_back();
                     },
                     [&](const Model::EntityNode* entityNode) {
-                        serializer.entity(entityNode, entityNode->entity().attributes(), parentAttributes(), entityNode);
+                        auto extraProperties = parentProperties();
+                        const auto& protectedProperties = entityNode->entity().protectedProperties();
+                        if (!protectedProperties.empty()) {
+                            const auto escapedProperties = kdl::vec_transform(protectedProperties, [](const auto& key) { return kdl::str_escape(key, ";"); });
+                            extraProperties.emplace_back(Model::PropertyKeys::ProtectedEntityProperties, kdl::str_join(escapedProperties, ";"));
+                        }
+                        serializer.entity(entityNode, entityNode->entity().properties(), extraProperties, entityNode);
                     },
                     [] (const Model::BrushNode*) {}
                 ));
@@ -63,7 +72,7 @@ namespace TrenchBroom {
 
         NodeWriter::NodeWriter(const Model::WorldNode& world, std::ostream& stream) :
         m_world(world),
-        m_serializer(MapFileSerializer::create(m_world.format(), stream)) {}
+        m_serializer(MapFileSerializer::create(m_world.mapFormat(), stream)) {}
 
         NodeWriter::NodeWriter(const Model::WorldNode& world, std::unique_ptr<NodeSerializer> serializer) :
         m_world(world),
@@ -76,7 +85,7 @@ namespace TrenchBroom {
         }
 
         void NodeWriter::writeMap() {
-            m_serializer->beginFile();
+            m_serializer->beginFile({&m_world});
             writeDefaultLayer();
             writeCustomLayers();
             m_serializer->endFile();
@@ -85,7 +94,7 @@ namespace TrenchBroom {
         void NodeWriter::writeDefaultLayer() {
             m_serializer->defaultLayer(m_world);
 
-            if (!(m_serializer->exporting() && m_world.defaultLayer()->omitFromExport())) {
+            if (!(m_serializer->exporting() && m_world.defaultLayer()->layer().omitFromExport())) {
                 doWriteNodes(*m_serializer, m_world.defaultLayer()->children());
             }
         }
@@ -97,15 +106,15 @@ namespace TrenchBroom {
             }
         }
 
-        void NodeWriter::writeCustomLayer(const Model::LayerNode* layer) {
-            if (!(m_serializer->exporting() && layer->omitFromExport())) {
-                m_serializer->customLayer(layer);
-                doWriteNodes(*m_serializer, layer->children(), layer);
+        void NodeWriter::writeCustomLayer(const Model::LayerNode* layerNode) {
+            if (!(m_serializer->exporting() && layerNode->layer().omitFromExport())) {
+                m_serializer->customLayer(layerNode);
+                doWriteNodes(*m_serializer, layerNode->children(), layerNode);
             }
         }
 
         void NodeWriter::writeNodes(const std::vector<Model::Node*>& nodes) {
-            m_serializer->beginFile();
+            m_serializer->beginFile(kdl::vec_element_cast<const Model::Node*>(nodes));
 
             // Assort nodes according to their type and, in case of brushes, whether they are entity or world brushes.
             std::vector<Model::Node*> groups;
@@ -140,18 +149,18 @@ namespace TrenchBroom {
 
         void NodeWriter::writeWorldBrushes(const std::vector<Model::BrushNode*>& brushes) {
             if (!brushes.empty()) {
-                m_serializer->entity(&m_world, m_world.entity().attributes(), {}, brushes);
+                m_serializer->entity(&m_world, m_world.entity().properties(), {}, brushes);
             }
         }
 
         void NodeWriter::writeEntityBrushes(const EntityBrushesMap& entityBrushes) {
             for (const auto& [entityNode, brushes] : entityBrushes) {
-                m_serializer->entity(entityNode, entityNode->entity().attributes(), {}, brushes);
+                m_serializer->entity(entityNode, entityNode->entity().properties(), {}, brushes);
             }
         }
 
         void NodeWriter::writeBrushFaces(const std::vector<Model::BrushFace>& faces) {
-            m_serializer->beginFile();
+            m_serializer->beginFile({});
             m_serializer->brushFaces(faces);
             m_serializer->endFile();
         }

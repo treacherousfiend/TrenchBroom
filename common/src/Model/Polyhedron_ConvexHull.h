@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_Polyhedron_ConvexHull_h
-#define TrenchBroom_Polyhedron_ConvexHull_h
+#pragma once
 
 #include "Macros.h"
 
@@ -806,15 +805,37 @@ namespace TrenchBroom {
                     // If the vertex has only three incident edges, then it will be removed when the faces are merged.
                     const bool hasThreeIncidentEdges = leaving == leaving->nextIncident()->nextIncident()->nextIncident();
 
+                    if (hasThreeIncidentEdges && m_faces.size() == 4u) {
+                        // Merging any faces will fail because it will turn this polyhedron into a polygon.
+                        // We treat this case by removing all incident faces and edges, and the given vertex.
+
+                        // Build a seam consisting of the edges of the remaining polygon.
+                        auto seam = Seam{};
+                        auto* remainingFace = leaving->next()->twin()->face();
+                        auto& boundary = remainingFace->boundary();
+
+                        // The seam must be CCW, so we have to iterate in reverse order in this case.
+                        for (auto it = boundary.rbegin(), end = boundary.rend(); it != end; ++it) {
+                            auto* halfEdge = *it;
+                            auto* seamEdge = halfEdge->edge();
+                            seamEdge->makeFirstEdge(halfEdge);
+                            seam.push_back(seamEdge);
+                        }
+
+                        // Split this polyhedron.
+                        split(seam);
+                        return nullptr;
+                    }
+
                     // Choose the face to retain. We prefer the face that produces minimal error, i.e. the face such
                     // such that the maximum distance of the other face's vertices to the face plane is minimal.
                     if (firstFace->maximumVertexDistance(secondFace->plane()) <
                         secondFace->maximumVertexDistance(firstFace->plane())) {
                         // firstFace->plane() will introduce a smaller error, so merge secondFace into firstFace
-                        mergeNeighbours(edge->firstEdge(), nullptr);
+                        assertResult(mergeNeighbours(edge->firstEdge()));
                     } else {
                         // secondFace->plane() will introduce a smaller error, so merge firstFace into secondFace
-                        mergeNeighbours(edge->secondEdge(), nullptr);
+                        assertResult(mergeNeighbours(edge->secondEdge()));
                     }
                     
                     if (hasThreeIncidentEdges) {
@@ -853,5 +874,3 @@ namespace TrenchBroom {
         }
     }
 }
-
-#endif

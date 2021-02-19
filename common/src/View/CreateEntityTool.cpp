@@ -57,16 +57,15 @@ namespace TrenchBroom {
             if (definition->type() != Assets::EntityDefinitionType::PointEntity)
                 return false;
 
-            const Model::WorldNode* world = document->world();
-            m_entity = world->createEntity(Model::Entity({
-                {Model::AttributeNames::Classname, definition->name()}
+            m_entity = new Model::EntityNode(Model::Entity({
+                {Model::PropertyKeys::Classname, definition->name()}
             }));
 
             m_referenceBounds = document->referenceBounds();
 
             document->startTransaction("Create '" + definition->name() + "'");
             document->deselectAll();
-            document->addNode(m_entity, document->parentForNodes());
+            document->addNodes({{document->parentForNodes(), {m_entity}}});
             document->select(m_entity);
 
             return true;

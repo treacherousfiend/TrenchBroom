@@ -23,7 +23,10 @@
 #include "Ensure.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushNode.h"
+#include "Model/EntityNode.h"
+#include "Model/GroupNode.h"
 #include "Model/ParaxialTexCoordSystem.h"
+#include "View/MapDocument.h"
 
 #include <kdl/result.h>
 #include <kdl/string_compare.h>
@@ -87,37 +90,37 @@ namespace TrenchBroom {
     }
 
     TEST_CASE("TestUtilsTest.testTexCoordsEqual", "[TestUtilsTest]") {
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(0.0, 0.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(1.0, 0.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(2.00001, 0.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-10.0, 2.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(2.0, -3.0), vm::vec2f(-10.0, 2.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(-2.0, -3.0), vm::vec2f(-10.0, 2.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-1.0, 1.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-0.00001, 0.0)));
-        ASSERT_TRUE(texCoordsEqual(vm::vec2f(0.25, 0.0), vm::vec2f(-0.75, 0.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(0.0, 0.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(1.0, 0.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(2.00001, 0.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-10.0, 2.0)));
+        CHECK(texCoordsEqual(vm::vec2f(2.0, -3.0), vm::vec2f(-10.0, 2.0)));
+        CHECK(texCoordsEqual(vm::vec2f(-2.0, -3.0), vm::vec2f(-10.0, 2.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-1.0, 1.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(-0.00001, 0.0)));
+        CHECK(texCoordsEqual(vm::vec2f(0.25, 0.0), vm::vec2f(-0.75, 0.0)));
 
-        ASSERT_FALSE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(0.1, 0.1)));
-        ASSERT_FALSE(texCoordsEqual(vm::vec2f(-0.25, 0.0), vm::vec2f(0.25, 0.0)));
+        CHECK_FALSE(texCoordsEqual(vm::vec2f(0.0, 0.0), vm::vec2f(0.1, 0.1)));
+        CHECK_FALSE(texCoordsEqual(vm::vec2f(-0.25, 0.0), vm::vec2f(0.25, 0.0)));
     }
 
     TEST_CASE("TestUtilsTest.UVListsEqual", "[TestUtilsTest]") {
-        EXPECT_TRUE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {1,0}, {0, 1}}));
-        EXPECT_TRUE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{10,0}, {11,0}, {10, 1}})); // translation by whole texture increments OK
+        CHECK(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {1,0}, {0, 1}}));
+        CHECK(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{10,0}, {11,0}, {10, 1}})); // translation by whole texture increments OK
 
-        EXPECT_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{10.5,0}, {11.5,0}, {10.5, 1}})); // translation by partial texture increments not OK
-        EXPECT_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {0,1}, {1, 0}})); // wrong order
-        EXPECT_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {2,0}, {0, 2}})); // unwanted scaling
+        CHECK_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{10.5,0}, {11.5,0}, {10.5, 1}})); // translation by partial texture increments not OK
+        CHECK_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {0,1}, {1, 0}})); // wrong order
+        CHECK_FALSE(UVListsEqual({{0,0}, {1,0}, {0, 1}},  {{0,0}, {2,0}, {0, 2}})); // unwanted scaling
     }
 
     TEST_CASE("TestUtilsTest.pointExactlyIntegral", "[TestUtilsTest]") {
-        ASSERT_TRUE(pointExactlyIntegral(vm::vec3d(0.0, 0.0, 0.0)));
-        ASSERT_TRUE(pointExactlyIntegral(vm::vec3d(1024.0, 1204.0, 1024.0)));
-        ASSERT_TRUE(pointExactlyIntegral(vm::vec3d(-10000.0, -10000.0, -10000.0)));
+        CHECK(pointExactlyIntegral(vm::vec3d(0.0, 0.0, 0.0)));
+        CHECK(pointExactlyIntegral(vm::vec3d(1024.0, 1204.0, 1024.0)));
+        CHECK(pointExactlyIntegral(vm::vec3d(-10000.0, -10000.0, -10000.0)));
 
         const double near1024 = vm::nextgreater(1024.0);
-        ASSERT_FALSE(pointExactlyIntegral(vm::vec3d(1024.0, near1024, 1024.0)));
-        ASSERT_FALSE(pointExactlyIntegral(vm::vec3d(1024.5, 1024.5, 1024.5)));
+        CHECK_FALSE(pointExactlyIntegral(vm::vec3d(1024.0, near1024, 1024.0)));
+        CHECK_FALSE(pointExactlyIntegral(vm::vec3d(1024.5, 1024.5, 1024.5)));
     }
 
     namespace Model {
@@ -163,7 +166,7 @@ namespace TrenchBroom {
             REQUIRE(faceIndex);
             
             const BrushFace& face = brush.face(*faceIndex);
-            ASSERT_EQ(expected, face.attributes().textureName());
+            CHECK(face.attributes().textureName() == expected);
         }
 
         void assertTexture(const std::string& expected, const Brush& brush, const vm::vec3d& v1, const vm::vec3d& v2, const vm::vec3d& v3) {
@@ -183,7 +186,47 @@ namespace TrenchBroom {
             REQUIRE(faceIndex);
 
             const BrushFace& face = brush.face(*faceIndex);
-            ASSERT_EQ(expected, face.attributes().textureName());
+            CHECK(face.attributes().textureName() == expected);
+        }
+
+        void transformNode(Node& node, const vm::mat4x4& transformation, const vm::bbox3& worldBounds) {
+            node.accept(kdl::overload(
+                [](const WorldNode*) {},
+                [](const LayerNode*) {},
+                [&](auto&& thisLambda, GroupNode* groupNode) {
+                    auto group = groupNode->group();
+                    group.transform(transformation);
+                    groupNode->setGroup(std::move(group));
+
+                    groupNode->visitChildren(thisLambda);
+                },
+                [&](auto&& thisLambda, EntityNode* entityNode) {
+                    auto entity = entityNode->entity();
+                    entity.transform(transformation);
+                    entityNode->setEntity(std::move(entity));
+
+                    entityNode->visitChildren(thisLambda);
+                },
+                [&](BrushNode* brushNode) {
+                    auto brush = brushNode->brush();
+                    REQUIRE(brush.transform(worldBounds, transformation, false).is_success());
+                    brushNode->setBrush(std::move(brush));
+                }
+            ));
+        }
+    }
+
+    namespace View {
+        void addNode(MapDocument& document, Model::Node* parent, Model::Node* node) {
+            document.addNodes({{parent, {node}}});
+        }
+
+        void removeNode(MapDocument& document, Model::Node* node) {
+            document.removeNodes({node});
+        }
+
+        bool reparentNodes(MapDocument& document, Model::Node* newParent, std::vector<Model::Node*> nodes) {
+            return document.reparentNodes({{newParent, std::move(nodes)}});
         }
     }
 

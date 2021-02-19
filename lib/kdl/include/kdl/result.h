@@ -15,8 +15,7 @@
  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef result_h
-#define result_h
+#pragma once
 
 #include "kdl/meta_utils.h"
 #include "kdl/overload.h"
@@ -78,43 +77,47 @@ namespace kdl {
     class [[nodiscard]] result {
     public:
         using value_type = Value;
+
+        template <typename OtherValue>
+        using with_value_type = result<OtherValue, Errors...>;
     private:
         using variant_type = std::variant<value_type, Errors...>;
         variant_type m_value;
-    private:
-        result(variant_type&& v)
+
+        explicit result(variant_type&& v)
         : m_value(std::move(v)) {}
     public:
         /**
-         * Creates a new successful result that wraps the given value.
-         * If the value is passed by (const) lvalue reference, it is copied into the given result, if it is passed by
-         * rvalue reference, then it is moved into the given result.
+         * Creates a new result that wraps the given value.
          *
-         * @tparam V the type of the value, must be convertible to value_type
+         * v must be convertible to the value type or one of the error types of this result.
+         * If the value is passed by (const) lvalue reference, it is copied into this result, if it s passed by rvalue
+         * reference, then it is moved into this result.
+         *
+         * @tparam T the type of the value, must match the value type or one of the error types of this result
          * @param v the value
-         * @return a successful result that wraps the given value
          */
-        template <typename V>
-        static result success(V&& v) {
-            static_assert(std::is_convertible_v<V, Value>, "argument must be convertible to the value type");
-            return result(variant_type(std::in_place_index_t<0>(), std::forward<V>(v)));
-        }
-        
+        template <typename T>
+        result(T&& v)
+        : m_value(std::forward<T>(v)) {}
+
         /**
-         * Creates a new failure result that wraps the given error.
-         * If the error is passed by (const) lvalue reference, it is copied into the given result, if it s passed by rvalue
-         * reference, then it is moved into the given result.
+         * Converting constructor.
          *
-         * @tparam E the type of the error, must match one of the error types of the given result
-         * @param e the error
-         * @return a failure result that wraps the given error
+         * The given result type must have the same value type and a subset of the error types of this result type.
+         * The value or error wrapped by the given result is moved into this result.
+         *
+         * @param other the result to convert
          */
-        template <typename E>
-        static result error(E&& e) {
-            static_assert((... || std::is_convertible_v<E, Errors>), "argument must be convertible to an error type");
-            return result(variant_type(std::forward<E>(e)));
+        template <typename... ErrorSubset>
+        result(result<Value, ErrorSubset...> other) {
+            static_assert(meta_is_subset<meta_type_list<ErrorSubset...>, meta_type_list<Errors...>>::value, "Error types of result type to convert must be a subset of target result type");
+            std::move(other).visit(overload(
+                [&](Value&& v) { m_value = std::move(v); },
+                [&](auto&& e) { m_value = std::move(e); }
+            ));
         }
-        
+    public:
         /**
          * Visits the value or error contained in this result.
          *
@@ -149,11 +152,14 @@ namespace kdl {
          * Applies the given function to the value contained in this result, and returns a combination of this result
          * and the result of the given function.
          *
-         * The given function is expected to return a result of its own. Let the function's result type be
-         * `result<Fn_Value, Fn_Errors...>` and let this result's type be `result<My_Value, My_Errors...>`. Then
-         * `Fn_Value` and `My_Value` can be the same types, or they can be totally unrelated types. Likewise, there is
-         * no restriction on the types in `Fn_Errors` and `My_Errors`. They can be disjoint sets, but they may also
-         * intersect.
+         * The given function can return a result type of its own, or it can return any other type including `void`.
+         * In the following discussion, we assume that the function returns a result type. If the function does
+         * return another type `T`, then we treat it as if it had returned `result<T>`.
+         *
+         * Let the function's result type be `result<Fn_Value, Fn_Errors...>` and let this result's type be 
+         * `result<My_Value, My_Errors...>`. Then `Fn_Value` and `My_Value` can be the same types, or they can be 
+         * totally unrelated types. Likewise, there is no restriction on the types in `Fn_Errors` and `My_Errors`. 
+         * They can be disjoint sets, but they may also intersect.
          *
          * The type of the result returned by this function is a combination of `result<Fn_Value, Fn_Errors...>` and
          * `result<My_Value, My_Errors...>`. Let `result<Rs_Value, Rs_Errors>` be the type of the returned result, then
@@ -183,17 +189,17 @@ namespace kdl {
          * f1().and_then(
          *     [](const int i) {
          *         if (i < 0) {
-         *             return result<float, Error2>::error(Error2{"invalid"});
+         *             return result<float, Error2>(Error2{"invalid"});
          *         } else {
-         *             return result<float, Error2>::success(std::sqrt(float(i)));
+         *             return result<float, Error2>(std::sqrt(float(i)));
          *         }
          *     }
          * ).and_then(
          *     [](const float f) {
          *         if (f > 1000.0f) {
-         *             return result<std::string, Error3>::error(Error3{"out of bounds"});
+         *             return result<std::string, Error3>(Error3{"out of bounds"});
          *         } else {
-         *             return result<std::string, Error3>::success("good value");
+         *             return result<std::string, Error3>("good value");
          *         }
          *     }
          * ).visit(
@@ -223,39 +229,54 @@ namespace kdl {
         auto and_then(F&& f) const & {
             using My_Result = result<Value, Errors...>;
             using Fn_Result = std::invoke_result_t<F, Value>;
-            static_assert(detail::is_result<Fn_Result>::value, "Function must return result type");
-            
-            using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
-            using Fn_Value  = typename Fn_Result::value_type;
-            
-            if constexpr (std::is_same_v<Fn_Value, void>) {
-                return visit(kdl::overload(
-                    [&](const value_type& v) {
-                        return f(v).visit(kdl::overload(
-                            []() {
-                                return Cm_Result::success();
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (const auto& e) { return Cm_Result::error(e); }
-                ));
+
+            if constexpr(detail::is_result<Fn_Result>::value) {
+                using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
+                using Fn_Value  = typename Fn_Result::value_type;
+                
+                if constexpr (std::is_same_v<Fn_Value, void>) {
+                    return visit(kdl::overload(
+                        [&](const value_type& v) {
+                            return f(v).visit(kdl::overload(
+                                []() {
+                                    return Cm_Result();
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (const auto& e) { return Cm_Result(e); }
+                    ));
+                } else {
+                    return visit(kdl::overload(
+                        [&](const value_type& v) {
+                            return f(v).visit(kdl::overload(
+                                [](Fn_Value&& fn_v) {
+                                    return Cm_Result(std::move(fn_v));
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (const auto& e) { return Cm_Result(e); }
+                    ));
+                }
             } else {
-                return visit(kdl::overload(
-                    [&](const value_type& v) {
-                        return f(v).visit(kdl::overload(
-                            [](Fn_Value&& fn_v) {
-                                return Cm_Result::success(std::move(fn_v));
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (const auto& e) { return Cm_Result::error(e); }
-                ));
+                using Cm_Result = kdl::result<Fn_Result, Errors...>;
+                
+                if constexpr (std::is_same_v<Fn_Result, void>) {
+                    return visit(kdl::overload(
+                        [&](const value_type& v) { f(v); return Cm_Result{}; },
+                        [] (const auto& e)       { return Cm_Result{e}; }
+                    ));
+                } else {
+                    return visit(kdl::overload(
+                        [&](const value_type& v) { return Cm_Result{f(v)}; },
+                        [] (const auto& e)       { return Cm_Result{e}; }
+                    ));
+                }
             }
         }
         
@@ -267,40 +288,126 @@ namespace kdl {
         auto and_then(F&& f) && {
             using My_Result = result<Value, Errors...>;
             using Fn_Result = std::invoke_result_t<F, Value>;
-            static_assert(detail::is_result<Fn_Result>::value, "Function must return result type");
 
-            using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
-            using Fn_Value  = typename Fn_Result::value_type;
-            
-            if constexpr (std::is_same_v<Fn_Value, void>) {
-                return std::move(*this).visit(kdl::overload(
-                    [&](value_type&& v) {
-                        return f(std::move(v)).visit(kdl::overload(
-                            []() {
-                                return Cm_Result::success();
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (auto&& e) { return Cm_Result::error(e); }
-                ));
+            if constexpr(detail::is_result<Fn_Result>::value) {
+                using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
+                using Fn_Value  = typename Fn_Result::value_type;
+                
+                if constexpr (std::is_same_v<Fn_Value, void>) {
+                    return std::move(*this).visit(kdl::overload(
+                        [&](value_type&& v) {
+                            return f(std::move(v)).visit(kdl::overload(
+                                []() {
+                                    return Cm_Result();
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (auto&& e) { return Cm_Result(e); }
+                    ));
+                } else {
+                    return std::move(*this).visit(kdl::overload(
+                        [&](value_type&& v) {
+                            return f(std::move(v)).visit(kdl::overload(
+                                [](Fn_Value&& fn_v) {
+                                    return Cm_Result(std::move(fn_v));
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (auto&& e) { return Cm_Result(e); }
+                    ));
+                }
             } else {
-                return std::move(*this).visit(kdl::overload(
-                    [&](value_type&& v) {
-                        return f(std::move(v)).visit(kdl::overload(
-                            [](Fn_Value&& fn_v) {
-                                return Cm_Result::success(std::move(fn_v));
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (auto&& e) { return Cm_Result::error(e); }
-                ));
+                using Cm_Result = kdl::result<Fn_Result, Errors...>;
+                
+                if constexpr (std::is_same_v<Fn_Result, void>) {
+                    return std::move(*this).visit(kdl::overload(
+                        [&](value_type&& v) { f(std::move(v)); return Cm_Result{}; },
+                        [] (auto&& e)       { return Cm_Result{std::move(e)}; }
+                    ));
+                } else {
+                    return std::move(*this).visit(kdl::overload(
+                        [&](value_type&& v) { return Cm_Result{f(std::move(v))}; },
+                        [] (auto&& e)       { return Cm_Result{std::move(e)}; }
+                    ));
+                }
             }
+        }
+
+        /**
+         * Maps the error types of this result type to different error types using the given function.
+         *
+         * The given function must return a result type with the same (success) value type as this result.
+         * Let f_result_type be the result type returned by the given function.
+         *
+         * - If this result is successful, then its value is moved into in an instance of f_result_type and returned.
+         * - If this result is not successful, then its error is passed by rvalue reference to the given function and
+         *   the result returned by the function is returned by this function.
+         *
+         * Example:
+         *
+         * auto r = result<int, std::string>{"error"};
+         * auto x = std::move(r).map_errors([](std::string&& e) { return result<int, float>{7.0f}; });
+         *
+         * Then x is a failure result of type result<int, float> that holds 7.0f as its error value.
+         *
+         * @tparam F the type of the given function
+         * @param f the error mapping function
+         * @return a result wrapping either the success value or the mapped error value
+         */
+        template <typename F>
+        auto map_errors(F&& f) && {
+            using first_error_type = typename meta_front<Errors...>::front;
+            using f_result_type = std::invoke_result_t<F, first_error_type>;
+
+            static_assert(detail::is_result<f_result_type>::value, "Function must return result type");
+            static_assert(std::is_same_v<typename f_result_type::value_type, value_type>, "Function must return a result type with matching value type");
+
+            return std::move(*this).visit(kdl::overload(
+                [&](value_type&& v) { return f_result_type{std::move(v)}; },
+                [&](auto&& e)       { return f(std::move(e)); }
+            ));
+        }
+
+
+        /**
+         * Maps the error types of this result type to different error types using the given function.
+         *
+         * The given function must return a result type with the same (success) value type as this result.
+         * Let f_result_type be the result type returned by the given function.
+         *
+         * - If this result is successful, then its value is copied into in an instance of f_result_type and returned.
+         * - If this result is not successful, then its error is passed by const lvalue reference to the given function and
+         *   the result returned by the function is returned by this function.
+         *
+         * Example:
+         *
+         * auto r = result<int, std::string>{"error"};
+         * auto x = std::move(r).map_errors([](std::string&& e) { return result<int, float>{7.0f}; });
+         *
+         * Then x is a failure result of type result<int, float> that holds 7.0f as its error value.
+         *
+         * @tparam F the type of the given function
+         * @param f the error mapping function
+         * @return a result wrapping either the success value or the mapped error value
+         */
+        template <typename F>
+        auto map_errors(F&& f) const & {
+            using first_error_type = typename meta_front<Errors...>::front;
+            using f_result_type = std::invoke_result_t<F, first_error_type>;
+
+            static_assert(detail::is_result<f_result_type>::value, "Function must return result type");
+            static_assert(std::is_same_v<typename f_result_type::value_type, value_type>, "Function must return a result type with matching value type");
+
+            return visit(kdl::overload(
+                [&](const value_type& v) { return f_result_type{v}; },
+                [&](const auto& e)       { return f(e); }
+            ));
         }
 
         /**
@@ -380,6 +487,34 @@ namespace kdl {
         }
 
         /**
+         * Returns a the error contained in this result if it not successful. Otherwise, throws `bad_result_access`.
+         *
+         * @return a std::variant<Errors...> containing a copy of the error in this result
+         *
+         * @throw bad_result_access if this result is an error
+         */
+        auto error() const & {
+            return visit(kdl::overload(
+                [](const value_type&) -> std::variant<Errors...> { throw bad_result_access(); },
+                [](const auto& e)     -> std::variant<Errors...> { return e; }
+            ));
+        }
+
+        /**
+         * Returns a the error contained in this result if it not successful. Otherwise, throws `bad_result_access`.
+         *
+         * @return a std::variant<Errors...> containing the error in this result
+         *
+         * @throw bad_result_access if this result is an error
+         */
+        auto error() && {
+            return visit(kdl::overload(
+                [](const value_type&) -> std::variant<Errors...> { throw bad_result_access(); },
+                [](auto&& e)          -> std::variant<Errors...> { return std::move(e); }
+            ));
+        }
+
+        /**
          * Indicates whether the given result contains a value.
          */
         bool is_success() const {
@@ -419,6 +554,13 @@ namespace kdl {
         }
     };
     
+    namespace detail {
+        struct void_success_value_type {
+            friend bool operator==(const void_success_value_type&, const void_success_value_type&) { return true; }
+            friend bool operator!=(const void_success_value_type&, const void_success_value_type&) { return false; }
+        };
+    }
+
     /**
      * Wrapper class that can contain either nothing or one of several errors.
      *
@@ -433,45 +575,53 @@ namespace kdl {
     class [[nodiscard]] result<void, Errors...> {
     public:
         using value_type = void;
+
+        template <typename OtherValue>
+        using with_value_type = result<OtherValue, Errors...>;
     private:
-        struct success_value_type {
-            friend bool operator==(const success_value_type&, const success_value_type&) { return true; }
-            friend bool operator!=(const success_value_type&, const success_value_type&) { return false; }
-        };
-        using variant_type = std::variant<success_value_type, Errors...>;
+        using variant_type = std::variant<detail::void_success_value_type, Errors...>;
         variant_type m_value;
-    private:
-        result() :
-        m_value(success_value_type{}) {}
-        
-        result(variant_type&& v)
+
+        explicit result(variant_type&& v)
         : m_value(std::move(v)) {}
     public:
         /**
          * Creates a new successful result.
-         *
-         * @return a successful result
          */
-        static result success() {
-            return result();
-        }
-        
+        constexpr result() :
+        m_value(detail::void_success_value_type{}) {}
+
         /**
-         * Creates a new failure result that wraps the given error.
-         * If the error is passed by (const) lvalue reference, it is copied into this result, if it s passed by rvalue
+         * Creates a new result that wraps the given value.
+         *
+         * v must be convertible to detail::void_success_value_type or one of the error types of this result.
+         * If the value is passed by (const) lvalue reference, it is copied into this result, if it s passed by rvalue
          * reference, then it is moved into this result.
          *
-         * @tparam E the type of the error, must match one of the error types of this result
-         * @param e the error
-         * @return a failure result that wraps the given error
+         * @tparam T the type of the value, must match detail::void_success_value_type or one of the error types of this result
+         * @param v the value
          */
-        template <typename E>
-        static result error(E&& e) {
-            static_assert((... || std::is_convertible_v<E, Errors>), "argument must be an error type");
+        template <typename T>
+        result(T&& v)
+        : m_value(std::forward<T>(v)) {}
 
-            return result(variant_type(std::forward<E>(e)));
+        /**
+         * Converting constructor.
+         *
+         * The given result type must have void as its value type and a subset of the error types of this result type.
+         * The value or error wrapped by the given result is moved into this result.
+         *
+         * @param other the result to convert
+         */
+        template <typename... ErrorSubset>
+        result(result<void, ErrorSubset...> other) {
+            static_assert(meta_is_subset<meta_type_list<ErrorSubset...>, meta_type_list<Errors...>>::value, "Error types of result type to convert must be a subset of target result type");
+            std::move(other).visit(overload(
+                [&]() { m_value = detail::void_success_value_type{}; },
+                [&](auto&& e) { m_value = std::move(e); }
+            ));
         }
-        
+    public:
         /**
          * Applies the given visitor this result.
          *
@@ -485,7 +635,7 @@ namespace kdl {
         template <typename Visitor>
         auto visit(Visitor&& visitor) const & {
             return std::visit(kdl::overload(
-                [&](const success_value_type&) {
+                [&](const detail::void_success_value_type&) {
                     return visitor();
                 },
                 [&](const auto& e) {
@@ -507,7 +657,7 @@ namespace kdl {
         template <typename Visitor>
         auto visit(Visitor&& visitor) && {
             return std::visit(kdl::overload(
-                [&](success_value_type&&) {
+                [&](detail::void_success_value_type&&) {
                     return visitor();
                 },
                 [&](auto&& e) {
@@ -523,39 +673,54 @@ namespace kdl {
         auto and_then(F&& f) const & {
             using My_Result = result<void, Errors...>;
             using Fn_Result = std::invoke_result_t<F>;
-            static_assert(detail::is_result<Fn_Result>::value, "Function must return result type");
 
-            using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
-            using Fn_Value  = typename Fn_Result::value_type;
-            
-            if constexpr (std::is_same_v<Fn_Value, void>) {
-                return visit(kdl::overload(
-                    [&]() {
-                        return f().visit(kdl::overload(
-                            []() {
-                                return Cm_Result::success();
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (const auto& e) { return Cm_Result::error(e); }
-                ));
+            if constexpr(detail::is_result<Fn_Result>::value) {
+                using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
+                using Fn_Value  = typename Fn_Result::value_type;
+                
+                if constexpr (std::is_same_v<Fn_Value, void>) {
+                    return visit(kdl::overload(
+                        [&]() {
+                            return f().visit(kdl::overload(
+                                []() {
+                                    return Cm_Result();
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (const auto& e) { return Cm_Result(e); }
+                    ));
+                } else {
+                    return visit(kdl::overload(
+                        [&]() {
+                            return f().visit(kdl::overload(
+                                [](Fn_Value&& fn_v) {
+                                    return Cm_Result(std::move(fn_v));
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (const auto& e) { return Cm_Result(e); }
+                    ));
+                }
             } else {
-                return visit(kdl::overload(
-                    [&]() {
-                        return f().visit(kdl::overload(
-                            [](Fn_Value&& fn_v) {
-                                return Cm_Result::success(std::move(fn_v));
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (const auto& e) { return Cm_Result::error(e); }
-                ));
+                using Cm_Result = kdl::result<Fn_Result, Errors...>;
+                
+                if constexpr (std::is_same_v<Fn_Result, void>) {
+                    return visit(kdl::overload(
+                        [&]()              { f(); return Cm_Result{}; },
+                        [] (const auto& e) { return Cm_Result{e}; }
+                    ));
+                } else {
+                    return visit(kdl::overload(
+                        [&]()              { return Cm_Result{f()}; },
+                        [] (const auto& e) { return Cm_Result{e}; }
+                    ));
+                }
             }
         }
         
@@ -566,40 +731,89 @@ namespace kdl {
         auto and_then(F&& f) && {
             using My_Result = result<void, Errors...>;
             using Fn_Result = std::invoke_result_t<F>;
-            static_assert(detail::is_result<Fn_Result>::value, "Function must return result type");
 
-            using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
-            using Fn_Value  = typename Fn_Result::value_type;
-            
-            if constexpr (std::is_same_v<Fn_Value, void>) {
-                return std::move(*this).visit(kdl::overload(
-                    [&]() {
-                        return f().visit(kdl::overload(
-                            []() {
-                                return Cm_Result::success();
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (auto&& e) { return Cm_Result::error(e); }
-                ));
+            if constexpr(detail::is_result<Fn_Result>::value) {
+                using Cm_Result = typename detail::chain_results<My_Result, Fn_Result>::result;
+                using Fn_Value  = typename Fn_Result::value_type;
+                
+                if constexpr (std::is_same_v<Fn_Value, void>) {
+                    return std::move(*this).visit(kdl::overload(
+                        [&]() {
+                            return f().visit(kdl::overload(
+                                []() {
+                                    return Cm_Result();
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (auto&& e) { return Cm_Result(e); }
+                    ));
+                } else {
+                    return std::move(*this).visit(kdl::overload(
+                        [&]() {
+                            return f().visit(kdl::overload(
+                                [](Fn_Value&& fn_v) {
+                                    return Cm_Result(std::move(fn_v));
+                                },
+                                [](auto&& fn_e) {
+                                    return Cm_Result(std::move(fn_e));
+                                }
+                            ));
+                        },
+                        [] (auto&& e) { return Cm_Result(e); }
+                    ));
+                }
             } else {
-                return std::move(*this).visit(kdl::overload(
-                    [&]() {
-                        return f().visit(kdl::overload(
-                            [](Fn_Value&& fn_v) {
-                                return Cm_Result::success(std::move(fn_v));
-                            },
-                            [](auto&& fn_e) {
-                                return Cm_Result::error(std::move(fn_e));
-                            }
-                        ));
-                    },
-                    [] (auto&& e) { return Cm_Result::error(e); }
-                ));
+                using Cm_Result = kdl::result<Fn_Result, Errors...>;
+                
+                if constexpr (std::is_same_v<Fn_Result, void>) {
+                    return std::move(*this).visit(kdl::overload(
+                        [&]()         { f(); return Cm_Result{}; },
+                        [] (auto&& e) { return Cm_Result{std::move(e)}; }
+                    ));
+                } else {
+                    return std::move(*this).visit(kdl::overload(
+                        [&]()         { return Cm_Result{f()}; },
+                        [] (auto&& e) { return Cm_Result{std::move(e)}; }
+                    ));
+                }
             }
+        }
+        
+        /**
+         * See result<Value, Errors...>::map_errors.
+         */
+        template <typename F>
+        auto map_errors(F&& f) && {
+            using first_error_type = typename meta_front<Errors...>::front;
+            using f_result_type = std::invoke_result_t<F, first_error_type>;
+            
+            static_assert(detail::is_result<f_result_type>::value, "Function must return result type");
+            static_assert(std::is_same_v<typename f_result_type::value_type, value_type>, "Function must return a result type with matching value type");
+
+            return std::move(*this).visit(kdl::overload(
+                [&]()         { return f_result_type{}; },
+                [&](auto&& e) { return f(std::move(e)); }
+            ));
+        }
+        
+        /**
+         * See result<Value, Errors...>::map_errors.
+         */
+        template <typename F>
+        auto map_errors(F&& f) const & {
+            using first_error_type = typename meta_front<Errors...>::front;
+            using f_result_type = std::invoke_result_t<F, first_error_type>;
+
+            static_assert(detail::is_result<f_result_type>::value, "Function must return result type");
+            static_assert(std::is_same_v<typename f_result_type::value_type, value_type>, "Function must return a result type with matching value type");
+
+            return visit(kdl::overload(
+                [&]()              { return f_result_type{}; },
+                [&](const auto& e) { return f(e); }
+            ));
         }
 
         /**
@@ -635,10 +849,38 @@ namespace kdl {
         }
 
         /**
+         * Returns a the error contained in this result if it not successful. Otherwise, throws `bad_result_access`.
+         *
+         * @return a std::variant<Errors...> containing a copy of the error in this result
+         *
+         * @throw bad_result_access if this result is an error
+         */
+        auto error() const & {
+            return visit(kdl::overload(
+                []()              -> std::variant<Errors...> { throw bad_result_access(); },
+                [](const auto& e) -> std::variant<Errors...> { return e; }
+            ));
+        }
+
+        /**
+         * Returns a the error contained in this result if it not successful. Otherwise, throws `bad_result_access`.
+         *
+         * @return a std::variant<Errors...> containing the error in this result
+         *
+         * @throw bad_result_access if this result is an error
+         */
+        auto error() && {
+            return visit(kdl::overload(
+                []()         -> std::variant<Errors...> { throw bad_result_access(); },
+                [](auto&& e) -> std::variant<Errors...> { return std::move(e); }
+            ));
+        }
+
+        /**
          * Indicates whether this result is empty.
          */
         bool is_success() const {
-            return std::holds_alternative<success_value_type>(m_value);
+            return std::holds_alternative<detail::void_success_value_type>(m_value);
         }
         
         /**
@@ -674,7 +916,5 @@ namespace kdl {
         }
     };
 
-    static const auto void_result = kdl::result<void>::success();
+    constexpr auto void_success = kdl::result<void>();
 }
-
-#endif /* result_h */

@@ -68,6 +68,26 @@ namespace TrenchBroom {
             )).value_or(nullptr);
         }
 
+        const GroupNode* findContainingGroup(const Node* node) {
+            return findContainingGroup(const_cast<Node*>(node));
+        }
+
+        GroupNode* findContainingLinkedGroup(Node& node) {
+            auto* containingGroupNode = findContainingGroup(&node);
+            while (containingGroupNode) {
+                if (containingGroupNode->group().linkedGroupId().has_value()) {
+                    return containingGroupNode;
+                }
+                containingGroupNode = findContainingGroup(containingGroupNode);
+            }
+
+            return nullptr;
+        }
+
+        const GroupNode* findContainingLinkedGroup(const Node& node) {
+            return findContainingLinkedGroup(const_cast<Node&>(node));
+        }
+
         GroupNode* findOutermostClosedGroup(Node* node) {
             return node->visitParent(kdl::overload(
                 [](WorldNode*)                            -> GroupNode* { return nullptr; },
@@ -83,6 +103,26 @@ namespace TrenchBroom {
                 [](auto&& thisLambda, EntityNode* entity) -> GroupNode* { return entity->visitParent(thisLambda).value_or(nullptr); },
                 [](auto&& thisLambda, BrushNode* brush)   -> GroupNode* { return brush->visitParent(thisLambda).value_or(nullptr); }
             )).value_or(nullptr);
+        }
+
+        std::vector<Model::GroupNode*> findLinkedGroups(Model::WorldNode& worldNode, const std::string& linkedGroupId) {
+            auto result = std::vector<Model::GroupNode*>{};
+
+            worldNode.accept(kdl::overload(
+                [] (auto&& thisLambda, Model::WorldNode* w) { w->visitChildren(thisLambda); },
+                [] (auto&& thisLambda, Model::LayerNode* l) { l->visitChildren(thisLambda); },
+                [&](auto&& thisLambda, Model::GroupNode* g) {
+                    if (g->group().linkedGroupId() == linkedGroupId) {
+                        result.push_back(g);
+                    } else {
+                        g->visitChildren(thisLambda);
+                    }
+                },
+                [] (Model::EntityNode*) {},
+                [] (Model::BrushNode*)  {}
+            ));
+
+            return result;
         }
 
         static void collectWithParents(Node* node, std::vector<Node*>& result) {
@@ -105,7 +145,8 @@ namespace TrenchBroom {
             return kdl::vec_sort_and_remove_duplicates(std::move(result));
         }
 
-        std::vector<Node*> collectParents(const std::map<Node*, std::vector<Node*>>& nodes) {
+        template <typename T>
+        static std::vector<Node*> doCollectParents(const T& nodes) {
             std::vector<Node*> result;
             for (const auto& entry : nodes) {
                 Node* parent = entry.first;
@@ -114,10 +155,26 @@ namespace TrenchBroom {
             return kdl::vec_sort_and_remove_duplicates(std::move(result));
         }
 
+        std::vector<Node*> collectParents(const std::map<Node*, std::vector<Node*>>& nodes) {
+            return doCollectParents(nodes);
+        }
+
+        std::vector<Node*> collectParents(const std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>& nodes) {
+            return doCollectParents(nodes);
+        }
+
         std::vector<Node*> collectChildren(const std::map<Node*, std::vector<Node*>>& nodes) {
             std::vector<Node*> result;
             for (const auto& entry : nodes) {
                 result = kdl::vec_concat(std::move(result), entry.second);
+            }
+            return result;
+        }
+
+        std::vector<Node*> collectChildren(const std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>>& nodes) {
+            std::vector<Node*> result;
+            for (const auto& entry : nodes) {
+                result = kdl::vec_concat(std::move(result), kdl::vec_transform(entry.second, [](auto& child) { return child.get(); }));
             }
             return result;
         }

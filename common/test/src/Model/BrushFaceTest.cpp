@@ -31,15 +31,14 @@
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
 #include "Model/MapFormat.h"
-#include "Model/NodeSnapshot.h"
 #include "Model/ParaxialTexCoordSystem.h"
 #include "Model/ParallelTexCoordSystem.h"
 #include "Model/Polyhedron.h"
-#include "Model/WorldNode.h"
 
 #include <kdl/result.h>
 #include <kdl/vector_utils.h>
 
+#include <vecmath/approx.h>
 #include <vecmath/forward.h>
 #include <vecmath/vec.h>
 #include <vecmath/mat.h>
@@ -49,7 +48,6 @@
 #include <vector>
 
 #include "Catch2.h"
-#include "GTestCompat.h"
 #include "TestUtils.h"
 
 namespace TrenchBroom {
@@ -61,11 +59,11 @@ namespace TrenchBroom {
 
             const BrushFaceAttributes attribs("");
             BrushFace face = BrushFace::create(p0, p1, p2, attribs, std::make_unique<ParaxialTexCoordSystem>(p0, p1, p2, attribs)).value();
-            ASSERT_VEC_EQ(p0, face.points()[0]);
-            ASSERT_VEC_EQ(p1, face.points()[1]);
-            ASSERT_VEC_EQ(p2, face.points()[2]);
-            ASSERT_VEC_EQ(vm::vec3::pos_z(), face.boundary().normal);
-            ASSERT_EQ(4.0, face.boundary().distance);
+            CHECK(face.points()[0] == vm::approx(p0));
+            CHECK(face.points()[1] == vm::approx(p1));
+            CHECK(face.points()[2] == vm::approx(p2));
+            CHECK(face.boundary().normal == vm::approx(vm::vec3::pos_z()));
+            CHECK(face.boundary().distance == 4.0);
         }
 
         TEST_CASE("BrushFaceTest.constructWithColinearPoints", "[BrushFaceTest]") {
@@ -84,41 +82,41 @@ namespace TrenchBroom {
             Assets::Texture texture("testTexture", 64, 64);
             Assets::Texture texture2("testTexture2", 64, 64);
 
-            EXPECT_EQ(0u, texture.usageCount());
-            EXPECT_EQ(0u, texture2.usageCount());
+            CHECK(texture.usageCount() == 0u);
+            CHECK(texture2.usageCount() == 0u);
 
             BrushFaceAttributes attribs("");
             {
                 // test constructor
                 BrushFace face = BrushFace::create(p0, p1, p2, attribs, std::make_unique<ParaxialTexCoordSystem>(p0, p1, p2, attribs)).value();
-                EXPECT_EQ(0u, texture.usageCount());
+                CHECK(texture.usageCount() == 0u);
 
                 // test setTexture
                 face.setTexture(&texture);
-                EXPECT_EQ(1u, texture.usageCount());
-                EXPECT_EQ(0u, texture2.usageCount());
+                CHECK(texture.usageCount() == 1u);
+                CHECK(texture2.usageCount() == 0u);
 
                 {
                     // test copy constructor
                     BrushFace clone = face;
-                    EXPECT_EQ(2u, texture.usageCount());
+                    CHECK(texture.usageCount() == 2u);
                 }
 
                 // test destructor
-                EXPECT_EQ(1u, texture.usageCount());
+                CHECK(texture.usageCount() == 1u);
 
                 // test setTexture with different texture
                 face.setTexture(&texture2);
-                EXPECT_EQ(0u, texture.usageCount());
-                EXPECT_EQ(1u, texture2.usageCount());
+                CHECK(texture.usageCount() == 0u);
+                CHECK(texture2.usageCount() == 1u);
 
                 // test setTexture with the same texture
                 face.setTexture(&texture2);
-                EXPECT_EQ(1u, texture2.usageCount());
+                CHECK(texture2.usageCount() == 1u);
             }
 
-            EXPECT_EQ(0u, texture.usageCount());
-            EXPECT_EQ(0u, texture2.usageCount());
+            CHECK(texture.usageCount() == 0u);
+            CHECK(texture2.usageCount() == 0u);
         }
 
         static void getFaceVertsAndTexCoords(const BrushFace& face,
@@ -153,7 +151,7 @@ namespace TrenchBroom {
             // We require a texture, so that face.textureSize() returns a correct value and not 1x1,
             // and so face.textureCoords() returns UV's that are divided by the texture size.
             // Otherwise, the UV comparisons below could spuriously pass.
-            ASSERT_NE(nullptr, face.texture());
+            REQUIRE(face.texture() != nullptr);
 
             CHECK(UVListsEqual(uvs, transformedVertUVs));
         }
@@ -236,7 +234,7 @@ namespace TrenchBroom {
             std::vector<vm::vec3> verts;
             std::vector<vm::vec2f> uvs;
             getFaceVertsAndTexCoords(origFace, &verts, &uvs);
-            ASSERT_GE(verts.size(), 3U);
+            CHECK(verts.size() >= 3u);
 
             // transform the face
             BrushFace face = origFace;
@@ -448,7 +446,7 @@ namespace TrenchBroom {
             // get UV at mins; should be equal
             const vm::vec2f left_origTC = origFace.textureCoords(mins);
             const vm::vec2f left_transformedTC = face.textureCoords(mins);
-            EXPECT_TC_EQ(left_origTC, left_transformedTC);
+            CHECK(texCoordsEqual(left_origTC, left_transformedTC));
 
             // get UVs at mins, plus the X size of the cube
             const vm::vec2f right_origTC = origFace.textureCoords(mins + vm::vec3(cube.bounds().size().x(), 0, 0));
@@ -458,16 +456,15 @@ namespace TrenchBroom {
             const vm::vec2f orig_U_width = right_origTC - left_origTC;
             const vm::vec2f transformed_U_width = right_transformedTC - left_transformedTC;
 
-            EXPECT_FLOAT_EQ(orig_U_width.x() * 2.0f, transformed_U_width.x());
-            EXPECT_FLOAT_EQ(orig_U_width.y(), transformed_U_width.y());
+            CHECK(transformed_U_width.x() == vm::approx(orig_U_width.x() * 2.0f));
+            CHECK(transformed_U_width.y() == vm::approx(orig_U_width.y()));
         }
         
         TEST_CASE("BrushFaceTest.testSetRotation_Paraxial", "[BrushFaceTest]") {
             const vm::bbox3 worldBounds(8192.0);
             Assets::Texture texture("testTexture", 64, 64);
-            WorldNode world(Entity(), MapFormat::Standard);
 
-            BrushBuilder builder(&world, worldBounds);
+            BrushBuilder builder(MapFormat::Standard, worldBounds);
             Brush cube = builder.createCube(128.0, "").value();
             BrushFace& face = cube.faces().front();
 
@@ -482,16 +479,15 @@ namespace TrenchBroom {
             attributes.setRotation(-45.0f);
             face.setAttributes(attributes);
             
-            ASSERT_VEC_EQ(newXAxis, face.textureXAxis());
-            ASSERT_VEC_EQ(newYAxis, face.textureYAxis());
+            CHECK(face.textureXAxis() == vm::approx(newXAxis));
+            CHECK(face.textureYAxis() == vm::approx(newYAxis));
         }
 
         TEST_CASE("BrushFaceTest.testTextureLock_Paraxial", "[BrushFaceTest]") {
             const vm::bbox3 worldBounds(8192.0);
             Assets::Texture texture("testTexture", 64, 64);
-            WorldNode world(Entity(), MapFormat::Standard);
 
-            BrushBuilder builder(&world, worldBounds);
+            BrushBuilder builder(MapFormat::Standard, worldBounds);
             Brush cube = builder.createCube(128.0, "").value();
             auto& faces = cube.faces();
 
@@ -508,9 +504,8 @@ namespace TrenchBroom {
         TEST_CASE("BrushFaceTest.testTextureLock_Parallel", "[BrushFaceTest]") {
             const vm::bbox3 worldBounds(8192.0);
             Assets::Texture texture("testTexture", 64, 64);
-            WorldNode world(Entity(), MapFormat::Valve);
 
-            BrushBuilder builder(&world, worldBounds);
+            BrushBuilder builder(MapFormat::Valve, worldBounds);
             Brush cube = builder.createCube(128.0, "").value();
             auto& faces = cube.faces();
 
@@ -539,10 +534,9 @@ namespace TrenchBroom {
                                       "}\n");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Valve);
 
             IO::TestParserStatus status;
-            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
             BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
@@ -558,24 +552,24 @@ namespace TrenchBroom {
             }
             REQUIRE(negXFace != nullptr);
 
-            ASSERT_EQ(vm::vec3::pos_y(), negXFace->textureXAxis());
-            ASSERT_EQ(vm::vec3::neg_z(), negXFace->textureYAxis());
+            CHECK(negXFace->textureXAxis() == vm::vec3::pos_y());
+            CHECK(negXFace->textureYAxis() == vm::vec3::neg_z());
 
             // This face's texture normal is in the same direction as the face normal
             const vm::vec3 textureNormal = normalize(cross(negXFace->textureXAxis(), negXFace->textureYAxis()));
-            ASSERT_GT(dot(textureNormal, vm::vec3(negXFace->boundary().normal)), 0.0);
+            CHECK(dot(textureNormal, vm::vec3(negXFace->boundary().normal)) > 0.0);
 
             const vm::quat3 rot45(textureNormal, vm::to_radians(45.0));
             const vm::vec3 newXAxis(rot45 * negXFace->textureXAxis());
             const vm::vec3 newYAxis(rot45 * negXFace->textureYAxis());
 
             // Rotate by 45 degrees CCW
-            ASSERT_FLOAT_EQ(0.0f, negXFace->attributes().rotation());
+            CHECK(negXFace->attributes().rotation() == vm::approx(0.0f));
             negXFace->rotateTexture(45.0);
-            ASSERT_FLOAT_EQ(45.0f, negXFace->attributes().rotation());
+            CHECK(negXFace->attributes().rotation() == vm::approx(45.0f));
 
-            ASSERT_VEC_EQ(newXAxis, negXFace->textureXAxis());
-            ASSERT_VEC_EQ(newYAxis, negXFace->textureYAxis());
+            CHECK(negXFace->textureXAxis() == vm::approx(newXAxis));
+            CHECK(negXFace->textureYAxis() == vm::approx(newYAxis));
 
             kdl::vec_clear_and_delete(nodes);
         }
@@ -595,11 +589,10 @@ namespace TrenchBroom {
                                       "}\n");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Valve);
 
             IO::TestParserStatus status;
 
-            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
             BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
@@ -620,20 +613,20 @@ namespace TrenchBroom {
             REQUIRE(negYFace != nullptr);
             REQUIRE(posXFace != nullptr);
 
-            ASSERT_EQ(vm::vec3::pos_x(), negYFace->textureXAxis());
-            ASSERT_EQ(vm::vec3::neg_z(), negYFace->textureYAxis());
+            CHECK(negYFace->textureXAxis() == vm::vec3::pos_x());
+            CHECK(negYFace->textureYAxis() == vm::vec3::neg_z());
 
             auto snapshot = negYFace->takeTexCoordSystemSnapshot();
 
             // copy texturing from the negYFace to posXFace using the rotation method
             posXFace->copyTexCoordSystemFromFace(*snapshot, negYFace->attributes(), negYFace->boundary(), WrapStyle::Rotation);
-            ASSERT_VEC_EQ(vm::vec3(0.030303030303030123, 0.96969696969696961, -0.24242424242424243), posXFace->textureXAxis());
-            ASSERT_VEC_EQ(vm::vec3(-0.0037296037296037088, -0.24242424242424243, -0.97016317016317011), posXFace->textureYAxis());
+            CHECK(posXFace->textureXAxis() == vm::approx(vm::vec3(0.030303030303030123, 0.96969696969696961, -0.24242424242424243)));
+            CHECK(posXFace->textureYAxis() == vm::approx(vm::vec3(-0.0037296037296037088, -0.24242424242424243, -0.97016317016317011)));
 
             // copy texturing from the negYFace to posXFace using the projection method
             posXFace->copyTexCoordSystemFromFace(*snapshot, negYFace->attributes(), negYFace->boundary(), WrapStyle::Projection);
-            ASSERT_VEC_EQ(vm::vec3::neg_y(), posXFace->textureXAxis());
-            ASSERT_VEC_EQ(vm::vec3::neg_z(), posXFace->textureYAxis());
+            CHECK(posXFace->textureXAxis() == vm::approx(vm::vec3::neg_y()));
+            CHECK(posXFace->textureYAxis() == vm::approx(vm::vec3::neg_z()));
 
             kdl::vec_clear_and_delete(nodes);
         }
@@ -656,13 +649,12 @@ namespace TrenchBroom {
 )");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Valve);
 
             IO::TestParserStatus status;
 
-            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
             BrushNode* brushNode = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
-            EXPECT_NE(nullptr, brushNode);
+            CHECK(brushNode != nullptr);
             
             Brush brush = brushNode->brush();
 
@@ -678,11 +670,8 @@ namespace TrenchBroom {
         TEST_CASE("BrushFaceTest.formatConversion", "[BrushFaceTest]") {
             const vm::bbox3 worldBounds(4096.0);
 
-            WorldNode standardWorld(Model::Entity(), MapFormat::Standard);
-            WorldNode valveWorld(Model::Entity(), MapFormat::Valve);
-
-            BrushBuilder standardBuilder(&standardWorld, worldBounds);
-            BrushBuilder valveBuilder(&valveWorld, worldBounds);
+            BrushBuilder standardBuilder(MapFormat::Standard, worldBounds);
+            BrushBuilder valveBuilder(MapFormat::Valve, worldBounds);
 
             Assets::Texture texture("testTexture", 64, 64);
 
@@ -692,11 +681,12 @@ namespace TrenchBroom {
                             BrushFace& face = brush.face(i);
                             face.setTexture(&texture);
                         }
-                        return kdl::result<Brush>::success(brush);
+                        return std::move(brush);
                     }).value();
 
             auto testTransform = [&](const vm::mat4x4& transform){
-                const Brush standardCube = startingCube.transform(worldBounds, transform, true).value();
+                auto standardCube = startingCube;
+                REQUIRE(standardCube.transform(worldBounds, transform, true).is_success());
                 CHECK(dynamic_cast<const ParaxialTexCoordSystem*>(&standardCube.face(0).texCoordSystem()));
 
                 const Brush valveCube = standardCube.convertToParallel();
@@ -733,11 +723,10 @@ namespace TrenchBroom {
 )");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Standard);
 
             IO::TestParserStatus status;
 
-            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Standard, worldBounds, status);
             auto* brushNode = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(brushNode != nullptr);
 
@@ -766,11 +755,10 @@ namespace TrenchBroom {
 )");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Standard);
 
             IO::TestParserStatus status;
 
-            std::vector<Node*> nodes = IO::NodeReader::read(data, world, worldBounds, status);
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Standard, worldBounds, status);
 
             auto* groupNode = dynamic_cast<GroupNode*>(nodes.at(0));
             REQUIRE(groupNode != nullptr);
@@ -788,11 +776,71 @@ namespace TrenchBroom {
 )");
 
             const vm::bbox3 worldBounds(4096.0);
-            WorldNode world(Entity(), MapFormat::Valve);
 
             IO::TestParserStatus status;
 
-            CHECK(IO::NodeReader::read(data, world, worldBounds, status).empty());
+            CHECK(IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status).empty());
+        }
+
+        TEST_CASE("BrushFaceTest.flipTexture", "[BrushFaceTest]") {
+            const std::string data(R"(
+// entity 0
+{
+"mapversion" "220"
+"classname" "worldspawn"
+// brush 0
+{
+( -64 -64 -16 ) ( -64 -63 -16 ) ( -64 -64 -15 ) skip [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 -64 -16 ) ( -64 -64 -15 ) ( -63 -64 -16 ) skip [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( -64 -64 -16 ) ( -63 -64 -16 ) ( -64 -63 -16 ) skip [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 64 64 16 ) ( 64 65 16 ) ( 65 64 16 ) hint [ 1 0 0 0 ] [ 0 -1 0 0 ] 0 1 1
+( 64 64 16 ) ( 65 64 16 ) ( 64 64 17 ) skip [ 1 0 0 0 ] [ 0 0 -1 0 ] 0 1 1
+( 64 64 16 ) ( 64 64 17 ) ( 64 65 16 ) skip [ 0 1 0 0 ] [ 0 0 -1 0 ] 0 1 1
+}
+}
+)");
+
+            const vm::bbox3 worldBounds(4096.0);
+
+            IO::TestParserStatus status;
+
+            std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
+            auto* brushNode = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
+            REQUIRE(brushNode != nullptr);
+
+            Brush brush = brushNode->brush();
+            BrushFace& face = brush.face(*brush.findFace(vm::vec3::pos_z()));
+            CHECK(face.attributes().scale() == vm::vec2f(1,1));
+
+            SECTION("Default camera angle") {
+                const auto cameraUp = vm::vec3(0.284427, 0.455084, 0.843801);
+                const auto cameraRight = vm::vec3(0.847998, -0.529999, 0);
+
+                SECTION("Left flip") {
+                    face.flipTexture(cameraUp, cameraRight, vm::direction::left);
+                    CHECK(face.attributes().scale() == vm::vec2f(-1,1));
+                }
+
+                SECTION("Up flip") {
+                    face.flipTexture(cameraUp, cameraRight, vm::direction::up);
+                    CHECK(face.attributes().scale() == vm::vec2f(1,-1));
+                }
+            }
+
+            SECTION("Camera is aimed at +x") {
+                const auto cameraUp = vm::vec3(0.419431, -0.087374, 0.903585);
+                const auto cameraRight = vm::vec3(-0.203938, -0.978984, 0);
+
+                SECTION("left arrow (does vertical flip)") {
+                    face.flipTexture(cameraUp, cameraRight, vm::direction::left);
+                    CHECK(face.attributes().scale() == vm::vec2f(1,-1));
+                }
+
+                SECTION("up arrow (does horizontal flip)") {
+                    face.flipTexture(cameraUp, cameraRight, vm::direction::up);
+                    CHECK(face.attributes().scale() == vm::vec2f(-1,1));
+                }
+            }
         }
     }
 }

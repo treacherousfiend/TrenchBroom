@@ -25,6 +25,7 @@
 #include "Polyhedron.h"
 #include "Assets/Texture.h"
 #include "Model/BrushError.h"
+#include "Model/MapFormat.h"
 #include "Model/ParallelTexCoordSystem.h"
 #include "Model/ParaxialTexCoordSystem.h"
 #include "Model/TagMatcher.h"
@@ -104,13 +105,55 @@ namespace TrenchBroom {
 
         BrushFace::~BrushFace() = default;
 
+        kdl::result<BrushFace, BrushError> BrushFace::create(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, const MapFormat mapFormat) {
+            return Model::isParallelTexCoordSystem(mapFormat)
+                   ? BrushFace::create(point0, point1, point2, attributes, std::make_unique<ParallelTexCoordSystem>(point0, point1, point2, attributes))
+                   : BrushFace::create(point0, point1, point2, attributes, std::make_unique<ParaxialTexCoordSystem>(point0, point1, point2, attributes));
+        }
+
+        kdl::result<BrushFace, BrushError> BrushFace::createFromStandard(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& inputAttribs, const MapFormat mapFormat) {
+            assert(mapFormat != MapFormat::Unknown);
+
+            std::unique_ptr<TexCoordSystem> texCoordSystem;
+            BrushFaceAttributes attribs("");
+
+            if (Model::isParallelTexCoordSystem(mapFormat)) {
+                // Convert paraxial to parallel
+                std::tie(texCoordSystem, attribs) = ParallelTexCoordSystem::fromParaxial(point0, point1, point2, inputAttribs);
+            } else {
+                // Pass through paraxial
+                texCoordSystem = std::make_unique<ParaxialTexCoordSystem>(point0, point1, point2, inputAttribs);
+                attribs = inputAttribs;
+            }
+
+            return BrushFace::create(point0, point1, point2, attribs, std::move(texCoordSystem));
+        }
+
+        kdl::result<BrushFace, BrushError> BrushFace::createFromValve(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& inputAttribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY, MapFormat mapFormat) {
+            assert(mapFormat != MapFormat::Unknown);
+
+            std::unique_ptr<TexCoordSystem> texCoordSystem;
+            BrushFaceAttributes attribs("");
+
+            if (Model::isParallelTexCoordSystem(mapFormat)) {
+                // Pass through parallel
+                texCoordSystem = std::make_unique<ParallelTexCoordSystem>(texAxisX, texAxisY);
+                attribs = inputAttribs;
+            } else {
+                // Convert parallel to paraxial
+                std::tie(texCoordSystem, attribs) = ParaxialTexCoordSystem::fromParallel(point1, point2, point3, inputAttribs, texAxisX, texAxisY);
+            }
+
+            return BrushFace::create(point1, point2, point3, attribs, std::move(texCoordSystem));
+        }
+
         kdl::result<BrushFace, BrushError> BrushFace::create(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem) {
             Points points = {{ vm::correct(point0), vm::correct(point1), vm::correct(point2) }};
             const auto [result, plane] = vm::from_points(points[0], points[1], points[2]);
             if (result) {
-                return kdl::result<BrushFace, BrushError>::success(BrushFace(points, plane, attributes, std::move(texCoordSystem)));
+                return BrushFace(points, plane, attributes, std::move(texCoordSystem));
             } else {
-                return kdl::result<BrushFace, BrushError>::error(BrushError::InvalidFace);
+                return BrushError::InvalidFace;
             }
         }
 
@@ -332,6 +375,10 @@ namespace TrenchBroom {
             m_texCoordSystem->resetTextureAxes(m_boundary.normal);
         }
 
+        void BrushFace::resetTextureAxesToParaxial() {
+            m_texCoordSystem->resetTextureAxesToParaxial(m_boundary.normal, 0.0f);
+        }
+
         void BrushFace::convertToParaxial() {
             auto [newTexCoordSystem, newAttributes] = m_texCoordSystem->toParaxial(m_points[0], m_points[1], m_points[2], m_attributes);
 
@@ -361,6 +408,39 @@ namespace TrenchBroom {
             m_texCoordSystem->shearTexture(m_boundary.normal, factors);
         }
 
+        void BrushFace::flipTexture(const vm::vec3& /* cameraUp */, const vm::vec3& cameraRight, const vm::direction cameraRelativeFlipDirection) {
+            const vm::mat4x4 texToWorld = m_texCoordSystem->fromMatrix(vm::vec2f::zero(), vm::vec2f::one());
+
+            const vm::vec3 texUAxisInWorld = vm::normalize((texToWorld * vm::vec4d(1, 0, 0, 0)).xyz());
+            const vm::vec3 texVAxisInWorld = vm::normalize((texToWorld * vm::vec4d(0, 1, 0, 0)).xyz());
+
+            // Get the cos(angle) between cameraRight and the texUAxisInWorld _line_ (so, take the smaller of the angles
+            // among -texUAxisInWorld and texUAxisInWorld). Note that larger cos(angle) means smaller angle.
+            const FloatType UAxisCosAngle = vm::max(vm::dot(texUAxisInWorld, cameraRight),
+                                                    vm::dot(-texUAxisInWorld, cameraRight));
+
+            const FloatType VAxisCosAngle = vm::max(vm::dot(texVAxisInWorld, cameraRight),
+                                                    vm::dot(-texVAxisInWorld, cameraRight));
+
+            // If this is true, it means the texture's V axis is closer to the camera's right vector than the
+            // texture's U axis is (i.e. we're looking at the texture sideways), so we should map
+            // "camera relative horizontal" to "texture space Y".
+            const bool cameraRightCloserToTexV = (VAxisCosAngle > UAxisCosAngle);
+
+            bool flipTextureX = (cameraRelativeFlipDirection == vm::direction::left
+                                 || cameraRelativeFlipDirection == vm::direction::right);
+
+            if (cameraRightCloserToTexV) {
+                flipTextureX = !flipTextureX;
+            }
+
+            if (flipTextureX) {
+                m_attributes.setXScale(-1.0f * m_attributes.xScale());
+            } else {
+                m_attributes.setYScale(-1.0f * m_attributes.yScale());
+            }
+        }
+
         kdl::result<void, BrushError> BrushFace::transform(const vm::mat4x4& transform, const bool lockTexture) {
             using std::swap;
 
@@ -379,7 +459,6 @@ namespace TrenchBroom {
             return setPoints(m_points[0], m_points[1], m_points[2])
                 .and_then([&]() {
                     m_texCoordSystem->transform(oldBoundary, m_boundary, transform, m_attributes, textureSize(), lockTexture, invariant);
-                    return kdl::result<void, BrushError>::success();
                 });
         }
 
@@ -416,7 +495,6 @@ namespace TrenchBroom {
                     const auto offsetChange = desriedCoords - currentCoords;
                     m_attributes.setOffset(correct(modOffset(m_attributes.offset() + offsetChange), 4));
                 }
-                return kdl::result<void, BrushError>::success();
             });
         }
 
@@ -532,9 +610,9 @@ namespace TrenchBroom {
             const auto [result, plane] = vm::from_points(m_points[0], m_points[1], m_points[2]);
             if (result) {
                 m_boundary = plane;
-                return kdl::result<void, BrushError>::success();
+                return kdl::void_success;
             } else {
-                return kdl::result<void, BrushError>::error(BrushError::InvalidFace);
+                return BrushError::InvalidFace;
             }
         }
 

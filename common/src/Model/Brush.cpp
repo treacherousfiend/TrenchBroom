@@ -26,11 +26,11 @@
 #include "Model/BrushError.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushGeometry.h"
-#include "Model/ModelFactory.h"
+#include "Model/MapFormat.h"
 #include "Model/TexCoordSystem.h"
 
-#include <kdl/overload.h>
 #include <kdl/result.h>
+#include <kdl/result_for_each.h>
 #include <kdl/string_utils.h>
 #include <kdl/vector_utils.h>
 
@@ -97,7 +97,7 @@ namespace TrenchBroom {
         kdl::result<Brush, BrushError> Brush::create(const vm::bbox3& worldBounds, std::vector<BrushFace> faces) {
             Brush brush(std::move(faces));
             return brush.updateGeometryFromFaces(worldBounds)
-                .and_then([&]() { return kdl::result<Brush, BrushError>::success(std::move(brush)); });
+                .and_then([&]() { return std::move(brush); });
         }
 
         kdl::result<void, BrushError> Brush::updateGeometryFromFaces(const vm::bbox3& worldBounds) {
@@ -114,14 +114,14 @@ namespace TrenchBroom {
                     face.setGeometry(faceGeometry);
                     faceGeometry->setPayload(i);
                 } else  if (result.empty()) {
-                    return kdl::result<void, BrushError>::error(BrushError::EmptyBrush);
+                    return BrushError::EmptyBrush;
                 }
             }
 
             // Correct vertex positions and heal short edges
             geometry->correctVertexPositions();
             if (!geometry->healEdges()) {
-                return kdl::result<void, BrushError>::error(BrushError::InvalidBrush);
+                return BrushError::InvalidBrush;
             }
             
             // Now collect all faces which still remain
@@ -133,7 +133,7 @@ namespace TrenchBroom {
                     remainingFaces.push_back(std::move(m_faces[*faceIndex]));
                     faceGeometry->setPayload(remainingFaces.size() - 1u);
                 } else {
-                    return kdl::result<void, BrushError>::error(BrushError::IncompleteBrush);
+                    return BrushError::IncompleteBrush;
                 }
             }
 
@@ -142,7 +142,7 @@ namespace TrenchBroom {
             
             assert(checkFaceLinks());
 
-            return kdl::result<void, BrushError>::success();
+            return kdl::void_success;
         }
         
         const vm::bbox3& Brush::bounds() const {
@@ -221,7 +221,7 @@ namespace TrenchBroom {
 
                     auto snapshot = source.takeTexCoordSystemSnapshot();
                     if (snapshot != nullptr) {
-                        destination.copyTexCoordSystemFromFace(*snapshot, source.attributes().takeSnapshot(), source.boundary(), WrapStyle::Projection);
+                        destination.copyTexCoordSystemFromFace(*snapshot, source.attributes(), source.boundary(), WrapStyle::Projection);
                     }
                 }
             }
@@ -236,45 +236,50 @@ namespace TrenchBroom {
 
                     auto snapshot = source.takeTexCoordSystemSnapshot();
                     if (snapshot != nullptr) {
-                        destination.copyTexCoordSystemFromFace(*snapshot, source.attributes().takeSnapshot(), destination.boundary(), WrapStyle::Projection);
+                        destination.copyTexCoordSystemFromFace(*snapshot, source.attributes(), destination.boundary(), WrapStyle::Projection);
                     }
                 }
             }
         }
 
-        kdl::result<Brush, BrushError> Brush::clip(const vm::bbox3& worldBounds, BrushFace face) const {
-            std::vector<BrushFace> faces;
-            faces.reserve(faceCount() + 1u);
-            faces = kdl::vec_concat(std::move(faces), m_faces);
-            faces.push_back(std::move(face));
-            return Brush::create(worldBounds, std::move(faces));
+        kdl::result<void, BrushError> Brush::clip(const vm::bbox3& worldBounds, BrushFace face) {
+            m_faces.push_back(std::move(face));
+            return updateGeometryFromFaces(worldBounds);
         }
 
-        kdl::result<Brush, BrushError> Brush::moveBoundary(const vm::bbox3& worldBounds, const size_t faceIndex, const vm::vec3& delta, const bool lockTexture) const {
+        kdl::result<void, BrushError> Brush::moveBoundary(const vm::bbox3& worldBounds, const size_t faceIndex, const vm::vec3& delta, const bool lockTexture) {
             assert(faceIndex < faceCount());
 
-            auto newFaces = m_faces;
-            
-            return newFaces[faceIndex].transform(vm::translation_matrix(delta), lockTexture)
+            const auto originalFaceCount = faceCount();
+            return m_faces[faceIndex].transform(vm::translation_matrix(delta), lockTexture)
                 .and_then([&]() {
-                        return Brush::create(worldBounds, newFaces);
-                }).and_then([&](Brush&& b){
-                    return b.faceCount() != faceCount()
-                        ? kdl::result<Brush, BrushError>::error(BrushError::InvalidBrush)
-                        : kdl::result<Brush, BrushError>::success(std::move(b));
+                    return updateGeometryFromFaces(worldBounds);
+                }).and_then([&]() -> kdl::result<void, BrushError> {
+                    if (faceCount() == originalFaceCount) {
+// GCC 8 incorrectly complains about an unitialized variable use here
+#if defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER) && __GNUC__ == 8
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+                        return kdl::void_success;
+#if defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER) && __GNUC__ == 8
+#pragma GCC diagnostic pop
+#endif
+                    } else {
+                        return BrushError::InvalidBrush;
+                    }
                 });
         }
 
-        kdl::result<Brush, BrushError> Brush::expand(const vm::bbox3& worldBounds, const FloatType delta, const bool lockTexture) const {
-            auto faces = m_faces;
-            for (auto& face : faces) {
+        kdl::result<void, BrushError> Brush::expand(const vm::bbox3& worldBounds, const FloatType delta, const bool lockTexture) {
+            for (auto& face : m_faces) {
                 const vm::vec3 moveAmount = face.boundary().normal * delta;
                 if (!face.transform(vm::translation_matrix(moveAmount), lockTexture)) {
-                    return kdl::result<Brush, BrushError>::error(BrushError::InvalidFace);
+                    return BrushError::InvalidFace;
                 }
             }
 
-            return Brush::create(worldBounds, std::move(faces));
+            return updateGeometryFromFaces(worldBounds);
         }
 
         size_t Brush::vertexCount() const {
@@ -404,7 +409,7 @@ namespace TrenchBroom {
             return doCanMoveVertices(worldBounds, vertices, delta, true).success;
         }
 
-        kdl::result<Brush, BrushError> Brush::moveVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions, const vm::vec3& delta, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::moveVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions, const vm::vec3& delta, const bool uvLock) {
             return doMoveVertices(worldBounds, vertexPositions, delta, uvLock);
         }
 
@@ -418,12 +423,12 @@ namespace TrenchBroom {
             return newGeometry.hasVertex(position);
         }
         
-        kdl::result<Brush, BrushError> Brush::addVertex(const vm::bbox3& worldBounds, const vm::vec3& position) const {
+        kdl::result<void, BrushError> Brush::addVertex(const vm::bbox3& worldBounds, const vm::vec3& position) {
             assert(canAddVertex(worldBounds, position));
         
             BrushGeometry newGeometry(kdl::vec_concat(m_geometry->vertexPositions(), std::vector<vm::vec3>({position})));
             const PolyhedronMatcher<BrushGeometry> matcher(*m_geometry, newGeometry);
-            return createBrushWithNewGeometry(worldBounds, matcher, newGeometry);
+            return updateFacesFromGeometry(worldBounds, matcher, newGeometry);
         }
 
         static BrushGeometry removeVerticesFromGeometry(const BrushGeometry& geometry, const std::vector<vm::vec3>& vertexPositions) {
@@ -447,14 +452,14 @@ namespace TrenchBroom {
             return removeVerticesFromGeometry(*m_geometry, vertexPositions).polyhedron();
         }
 
-        kdl::result<Brush, BrushError> Brush::removeVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions) const {
+        kdl::result<void, BrushError> Brush::removeVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions) {
             ensure(m_geometry != nullptr, "geometry is null");
             ensure(!vertexPositions.empty(), "no vertex positions");
             assert(canRemoveVertices(worldBounds, vertexPositions));
 
             const BrushGeometry newGeometry = removeVerticesFromGeometry(*m_geometry, vertexPositions);
             const PolyhedronMatcher<BrushGeometry> matcher(*m_geometry, newGeometry);
-            return createBrushWithNewGeometry(worldBounds, matcher, newGeometry);
+            return updateFacesFromGeometry(worldBounds, matcher, newGeometry);
         }
 
         static BrushGeometry snappedGeometry(const BrushGeometry& geometry, const FloatType snapToF) {
@@ -473,7 +478,7 @@ namespace TrenchBroom {
             return snappedGeometry(*m_geometry, snapToF).polyhedron();
         }
 
-        kdl::result<Brush, BrushError> Brush::snapVertices(const vm::bbox3& worldBounds, const FloatType snapToF, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::snapVertices(const vm::bbox3& worldBounds, const FloatType snapToF, const bool uvLock) {
             ensure(m_geometry != nullptr, "geometry is null");
             
             const BrushGeometry newGeometry = snappedGeometry(*m_geometry, snapToF);
@@ -488,7 +493,7 @@ namespace TrenchBroom {
             }
 
             const PolyhedronMatcher<BrushGeometry> matcher(*m_geometry, newGeometry, vertexMapping);
-            return createBrushWithNewGeometry(worldBounds, matcher, newGeometry, uvLock);
+            return updateFacesFromGeometry(worldBounds, matcher, newGeometry, uvLock);
         }
 
         bool Brush::canMoveEdges(const vm::bbox3& worldBounds, const std::vector<vm::segment3>& edgePositions, const vm::vec3& delta) const {
@@ -514,7 +519,7 @@ namespace TrenchBroom {
             return true;
         }
 
-        kdl::result<Brush, BrushError> Brush::moveEdges(const vm::bbox3& worldBounds, const std::vector<vm::segment3>& edgePositions, const vm::vec3& delta, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::moveEdges(const vm::bbox3& worldBounds, const std::vector<vm::segment3>& edgePositions, const vm::vec3& delta, const bool uvLock) {
             assert(canMoveEdges(worldBounds, edgePositions, delta));
 
             std::vector<vm::vec3> vertexPositions;
@@ -544,7 +549,7 @@ namespace TrenchBroom {
             return true;
         }
 
-        kdl::result<Brush, BrushError> Brush::moveFaces(const vm::bbox3& worldBounds, const std::vector<vm::polygon3>& facePositions, const vm::vec3& delta, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::moveFaces(const vm::bbox3& worldBounds, const std::vector<vm::polygon3>& facePositions, const vm::vec3& delta, const bool uvLock) {
             assert(canMoveFaces(worldBounds, facePositions, delta));
 
             std::vector<vm::vec3> vertexPositions;
@@ -684,7 +689,7 @@ namespace TrenchBroom {
             return CanMoveVerticesResult::acceptVertexMove(std::move(result));
         }
 
-        kdl::result<Brush, BrushError> Brush::doMoveVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions, const vm::vec3& delta, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::doMoveVertices(const vm::bbox3& worldBounds, const std::vector<vm::vec3>& vertexPositions, const vm::vec3& delta, const bool uvLock) {
             ensure(m_geometry != nullptr, "geometry is null");
             ensure(!vertexPositions.empty(), "no vertex positions");
             assert(canMoveVertices(worldBounds, vertexPositions, delta));
@@ -716,7 +721,7 @@ namespace TrenchBroom {
             }
 
             const PolyhedronMatcher<BrushGeometry> matcher(*m_geometry, newGeometry, vertexMapping);
-            return createBrushWithNewGeometry(worldBounds, matcher, newGeometry, uvLock);
+            return updateFacesFromGeometry(worldBounds, matcher, newGeometry, uvLock);
         }
 
         std::tuple<bool, vm::mat4x4> Brush::findTransformForUVLock(const PolyhedronMatcher<BrushGeometry>& matcher, BrushFaceGeometry* left, BrushFaceGeometry* right) {
@@ -781,24 +786,20 @@ namespace TrenchBroom {
             // FP error) to `rightFace`.
             BrushFace leftClone = leftFace;
             leftClone.transform(M, true)
-                .visit(kdl::overload(
-                    [&]() {
-                        auto snapshot = std::unique_ptr<TexCoordSystemSnapshot>(leftClone.takeTexCoordSystemSnapshot());
-                        rightFace.setAttributes(leftClone.attributes());
-                        if (snapshot) {
-                            // Note, the wrap style doesn't matter because the source and destination faces should have the same plane
-                            rightFace.copyTexCoordSystemFromFace(*snapshot, leftClone.attributes().takeSnapshot(),
-                                leftClone.boundary(), WrapStyle::Rotation);
-                        }
-                        rightFace.resetTexCoordSystemCache();
-                    },
-                    [](const BrushError) {
-                        // do nothing
+                .and_then([&]() {
+                    auto snapshot = std::unique_ptr<TexCoordSystemSnapshot>(leftClone.takeTexCoordSystemSnapshot());
+                    rightFace.setAttributes(leftClone.attributes());
+                    if (snapshot) {
+                        // Note, the wrap style doesn't matter because the source and destination faces should have the same plane
+                        rightFace.copyTexCoordSystemFromFace(*snapshot, leftClone.attributes(), leftClone.boundary(), WrapStyle::Rotation);
                     }
-                ));
+                    rightFace.resetTexCoordSystemCache();
+                }).handle_errors([](const BrushError) {
+                    // do nothing
+                });
         }
 
-        kdl::result<Brush, BrushError> Brush::createBrushWithNewGeometry(const vm::bbox3& worldBounds, const PolyhedronMatcher<BrushGeometry>& matcher, const BrushGeometry& newGeometry, const bool uvLock) const {
+        kdl::result<void, BrushError> Brush::updateFacesFromGeometry(const vm::bbox3& worldBounds, const PolyhedronMatcher<BrushGeometry>& matcher, const BrushGeometry& newGeometry, const bool uvLock) {
             std::vector<BrushFace> newFaces;
             newFaces.reserve(newGeometry.faces().size());
 
@@ -810,86 +811,62 @@ namespace TrenchBroom {
 
                     rightFace.setGeometry(right);
                     rightFace.updatePointsFromVertices()
-                        .visit(kdl::overload(
-                            [&]() {
-                                if (uvLock) {
-                                    applyUVLock(matcher, leftFace, rightFace);
-                                }
-                            },
-                            [&](const BrushError e) {
-                                if (!error) {
-                                    error = e;
-                                }
+                        .and_then([&]() {
+                            if (uvLock) {
+                                applyUVLock(matcher, leftFace, rightFace);
                             }
-                        ));
+                        }).handle_errors([&](const BrushError e) {
+                            if (!error) {
+                                error = e;
+                            }
+                        });
                 }
             });
 
             if (error) {
-                return kdl::result<Brush, BrushError>::error(*error);
+                return *error;
             }
 
-            return Brush::create(worldBounds, std::move(newFaces));
+            m_faces = std::move(newFaces);
+            return updateGeometryFromFaces(worldBounds);
         }
 
-        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const ModelFactory& factory, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const std::vector<const Brush*>& subtrahends) const {
+        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const std::vector<const Brush*>& subtrahends) const {
             auto result = std::vector<BrushGeometry>{*m_geometry};
 
-            for (auto* subtrahend : subtrahends) {
-                auto nextResults = std::vector<BrushGeometry>();
+            for (const auto* subtrahend : subtrahends) {
+                auto nextResults = std::vector<BrushGeometry>{};
 
                 for (const BrushGeometry& fragment : result) {
                     auto subFragments = fragment.subtract(*subtrahend->m_geometry);
-
-                    nextResults.reserve(nextResults.size() + subFragments.size());
-                    for (auto& subFragment : subFragments) {
-                        nextResults.push_back(std::move(subFragment));
-                    }
+                    nextResults = kdl::vec_concat(std::move(nextResults), std::move(subFragments));
                 }
 
                 result = std::move(nextResults);
             }
 
-            std::vector<Brush> brushes;
-            brushes.reserve(result.size());
-
-            for (const auto& geometry : result) {
-                std::optional<BrushError> error;
-                createBrush(factory, worldBounds, defaultTextureName, geometry, subtrahends)
-                    .visit(kdl::overload(
-                        [&](Brush&& brush) {
-                            brushes.push_back(std::move(brush));
-                        },
-                        [&](const BrushError e) {
-                            error = e;
-                        }
-                    ));
-
-                if (error) {
-                    return kdl::result<std::vector<Brush>, BrushError>::error(*error);
-                }
-            }
-
-            return kdl::result<std::vector<Brush>, BrushError>::success(brushes);
+            return kdl::for_each_result(result, [&](const auto& geometry) {
+                return createBrush(mapFormat, worldBounds, defaultTextureName, geometry, subtrahends);
+            });
         }
 
-        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const ModelFactory& factory, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const Brush& subtrahend) const {
-            return subtract(factory, worldBounds, defaultTextureName, std::vector<const Brush*>{&subtrahend});
+        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const Brush& subtrahend) const {
+            return subtract(mapFormat, worldBounds, defaultTextureName, std::vector<const Brush*>{&subtrahend});
         }
 
-        kdl::result<Brush, BrushError> Brush::intersect(const vm::bbox3& worldBounds, const Brush& brush) const {
-            return Brush::create(worldBounds, kdl::vec_concat(m_faces, brush.faces()));
+        kdl::result<void, BrushError> Brush::intersect(const vm::bbox3& worldBounds, const Brush& brush) {
+            m_faces = kdl::vec_concat(std::move(m_faces), brush.faces());
+            return updateGeometryFromFaces(worldBounds);
         }
 
-        kdl::result<Brush, BrushError> Brush::transform(const vm::bbox3& worldBounds, const vm::mat4x4& transformation, const bool lockTextures) const {
-            auto faces = m_faces;
-            for (auto& face : faces) {
+        kdl::result<void, BrushError> Brush::transform(const vm::bbox3& worldBounds, const vm::mat4x4& transformation, const bool lockTextures) {
+            for (auto& face : m_faces) {
                 if (const auto transformResult = face.transform(transformation, lockTextures); !transformResult) {
-                    return kdl::result<Brush, BrushError>::error(BrushError::InvalidFace);
+                    return BrushError::InvalidFace;
                 }
             }
             
-            return Brush::create(worldBounds, std::move(faces));
+            return updateGeometryFromFaces(worldBounds);
         }
 
         bool Brush::contains(const vm::bbox3& bounds) const {
@@ -918,11 +895,8 @@ namespace TrenchBroom {
             return m_geometry->intersects(*brush.m_geometry);
         }
 
-        kdl::result<Brush, BrushError> Brush::createBrush(const ModelFactory& factory, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const BrushGeometry& geometry, const std::vector<const Brush*>& subtrahends) const {
-            std::vector<BrushFace> faces;
-            faces.reserve(geometry.faceCount());
-
-            for (const auto* face : geometry.faces()) {
+        kdl::result<Brush, BrushError> Brush::createBrush(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const BrushGeometry& geometry, const std::vector<const Brush*>& subtrahends) const {
+            return kdl::for_each_result(geometry.faces(), [&](const auto* face) {
                 const auto* h1 = face->boundary().front();
                 const auto* h0 = h1->next();
                 const auto* h2 = h0->next();
@@ -931,32 +905,17 @@ namespace TrenchBroom {
                 const auto& p1 = h1->origin()->position();
                 const auto& p2 = h2->origin()->position();
 
-                std::optional<BrushError> error;
-                factory.createFace(p0, p1, p2, BrushFaceAttributes(defaultTextureName))
-                    .visit(kdl::overload(
-                        [&](BrushFace&& f) {
-                            faces.push_back(std::move(f));
-                        },
-                        [&](const BrushError e) {
-                            error = e;
-                        }
-                    ));
-                
-                if (error) {
-                    return kdl::result<Brush, BrushError>::error(*error);
+                return BrushFace::create(p0, p1, p2, BrushFaceAttributes(defaultTextureName), mapFormat);
+            }).and_then([&](std::vector<BrushFace>&& faces) {
+                return Brush::create(worldBounds, std::move(faces));
+            }).and_then([&](Brush&& brush) {
+                brush.cloneFaceAttributesFrom(*this);
+                for (const auto* subtrahend : subtrahends) {
+                    brush.cloneFaceAttributesFrom(*subtrahend);
+                    brush.cloneInvertedFaceAttributesFrom(*subtrahend);
                 }
-            }
-
-            return Brush::create(worldBounds, std::move(faces))
-                .and_then(
-                    [&](Brush&& b) {
-                        b.cloneFaceAttributesFrom(*this);
-                        for (const auto* subtrahend : subtrahends) {
-                            b.cloneInvertedFaceAttributesFrom(*subtrahend);
-                        }
-                        return kdl::result<Brush, BrushError>::success(std::move(b));
-                    }
-                );
+                return std::move(brush);
+            });
         }
 
         Brush Brush::convertToParaxial() const {

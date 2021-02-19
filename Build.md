@@ -6,14 +6,13 @@ To see how releases of TrenchBroom are packaged, consult our CI scripts instead.
 
 ## All Platforms
 
-First, clone the TrenchBroom repository. If you are using the official repository and not a fork, you can clone the
-repository by running
+First, clone the TrenchBroom repository. `--recursive` is needed because we use git submodules:
 
 ```bash
-git clone --recursive https://github.com/kduske/TrenchBroom.git
+git clone --recursive https://github.com/TrenchBroom/TrenchBroom.git
 ```
 
-If you have an existing git clone, you might need to update submodules using
+If you have an existing git clone, you can update submodules using:
 
 ```bash
 git submodule update --init --recursive
@@ -94,7 +93,7 @@ TrenchBroom depends on:
 If you have a debian-based distribution, open a command prompt and execute this command to install required dependencies:
 
 ```bash
-sudo apt-get install g++-7 qt5-default freeglut3-dev libglew-dev mesa-common-dev build-essential libglm-dev libxxf86vm-dev libfreeimage-dev libfreetype6-dev pandoc cmake p7zip-full ninja-build
+sudo apt-get install g++-7 qt5-default libqt5svg5-dev freeglut3-dev libglew-dev mesa-common-dev build-essential libglm-dev libxxf86vm-dev libfreeimage-dev libfreetype6-dev pandoc cmake p7zip-full ninja-build
 ```
 
 Or, on Fedora:

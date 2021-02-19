@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_ChangeBrushFaceAttributesRequest
-#define TrenchBroom_ChangeBrushFaceAttributesRequest
+#pragma once
 
 #include "Color.h"
 
@@ -94,8 +93,10 @@ namespace TrenchBroom {
 
             const std::string name() const;
             bool evaluate(const std::vector<BrushFaceHandle>& faceHandles) const;
+            bool evaluate(BrushFace& brushFace) const;
 
             void resetAll(const BrushFaceAttributes& defaultFaceAttributes);
+            void resetAllToParaxial(const BrushFaceAttributes& defaultFaceAttributes);
 
             void setTextureName(const std::string& textureName);
 
@@ -155,4 +156,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_ChangeBrushFaceAttributesRequest) */

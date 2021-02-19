@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_EdgeRenderer
-#define TrenchBroom_EdgeRenderer
+#pragma once
 
 #include "Color.h"
 #include "Renderer/IndexRangeMap.h"
@@ -196,4 +195,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_EdgeRenderer) */

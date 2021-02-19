@@ -45,12 +45,10 @@
 #include <vecmath/mat_io.h>
 #include <vecmath/mat_ext.h>
 
-#include <vector>
 #include <variant>
+#include <vector>
 
 #include "Catch2.h"
-#include "GTestCompat.h"
-#include "catch2/catch.hpp"
 
 namespace TrenchBroom {
     namespace Model {
@@ -85,12 +83,12 @@ namespace TrenchBroom {
 
             ~MockNode() {
                 // If this fails, it means a call that was expected was not made
-                ASSERT_TRUE(m_expectedCalls.empty());
+                CHECK(m_expectedCalls.empty());
             }
         private:
             template <class T>
             T popCall() const {
-                ASSERT_FALSE(m_expectedCalls.empty());
+                CHECK_FALSE(m_expectedCalls.empty());
                 T expectedCall = std::get<T>(kdl::vec_pop_front(m_expectedCalls));
                 return expectedCall;
             }
@@ -116,13 +114,13 @@ namespace TrenchBroom {
 
             bool doCanAddChild(const Node* child) const override {
                 auto call = popCall<DoCanAddChild>();
-                ASSERT_EQ(call.expectedChild, child);
+                CHECK(child == call.expectedChild);
                 return call.valueToReturn;
             }
 
             bool doCanRemoveChild(const Node* child) const override {
                 auto call = popCall<DoCanRemoveChild>();
-                ASSERT_EQ(call.expectedChild, child);
+                CHECK(child == call.expectedChild);
                 return call.valueToReturn;
             }
 
@@ -249,7 +247,7 @@ namespace TrenchBroom {
             root->addChild(child);
             delete root;
 
-            ASSERT_TRUE(childDestroyed);
+            CHECK(childDestroyed);
         }
 
         TEST_CASE("NodeTest.addRemoveChild", "[NodeTest]") {
@@ -267,10 +265,10 @@ namespace TrenchBroom {
             grandChild1->expectCall(DoParentDidChange{});
             grandChild1->expectCall(DoAncestorDidChange{});
             child->addChild(grandChild1);
-            ASSERT_EQ(1u, child->childCount());
-            ASSERT_EQ(2u, child->familySize());
-            ASSERT_EQ(child, grandChild1->parent());
-            ASSERT_TRUE(kdl::vec_contains(child->children(), grandChild1));
+            CHECK(child->childCount() == 1u);
+            CHECK(child->familySize() == 2u);
+            CHECK(grandChild1->parent() == child);
+            CHECK(kdl::vec_contains(child->children(), grandChild1));
 
 #ifndef NDEBUG
             root.expectCall(DoCanAddChild{true, child});
@@ -283,10 +281,10 @@ namespace TrenchBroom {
             grandChild1->expectCall(DoAncestorDidChange{});
 
             root.addChild(child);
-            ASSERT_EQ(1u, root.childCount());
-            ASSERT_EQ(3u, root.familySize());
-            ASSERT_EQ(&root, child->parent());
-            ASSERT_TRUE(kdl::vec_contains(root.children(), child));
+            CHECK(root.childCount() == 1u);
+            CHECK(root.familySize() == 3u);
+            CHECK(child->parent() == &root);
+            CHECK(kdl::vec_contains(root.children(), child));
 
 #ifndef NDEBUG
             child->expectCall(DoCanAddChild{true,grandChild2});
@@ -296,12 +294,12 @@ namespace TrenchBroom {
             grandChild2->expectCall(DoParentDidChange{});
             grandChild2->expectCall(DoAncestorDidChange{});
             child->addChild(grandChild2);
-            ASSERT_EQ(1u, root.childCount());
-            ASSERT_EQ(4u, root.familySize());
-            ASSERT_EQ(2u, child->childCount());
-            ASSERT_EQ(3u, child->familySize());
-            ASSERT_EQ(child, grandChild2->parent());
-            ASSERT_TRUE(kdl::vec_contains(child->children(), grandChild2));
+            CHECK(root.childCount() == 1u);
+            CHECK(root.familySize() == 4u);
+            CHECK(child->childCount() == 2u);
+            CHECK(child->familySize() == 3u);
+            CHECK(grandChild2->parent() == child);
+            CHECK(kdl::vec_contains(child->children(), grandChild2));
 
 #ifndef NDEBUG
             root.expectCall(DoCanRemoveChild{true,child});
@@ -316,12 +314,12 @@ namespace TrenchBroom {
             grandChild2->expectCall(DoAncestorDidChange{});
 
             root.removeChild(child);
-            ASSERT_EQ(nullptr, child->parent());
-            ASSERT_FALSE(kdl::vec_contains(root.children(), child));
-            ASSERT_EQ(0u, root.childCount());
-            ASSERT_EQ(1u, root.familySize());
-            ASSERT_EQ(2u, child->childCount());
-            ASSERT_EQ(3u, child->familySize());
+            CHECK(child->parent() == nullptr);
+            CHECK_FALSE(kdl::vec_contains(root.children(), child));
+            CHECK(root.childCount() == 0u);
+            CHECK(root.familySize() == 1u);
+            CHECK(child->childCount() == 2u);
+            CHECK(child->familySize() == 3u);
 
 #ifndef NDEBUG
             root.expectCall(DoCanAddChild{true,child});
@@ -336,12 +334,36 @@ namespace TrenchBroom {
             grandChild2->expectCall(DoAncestorDidChange{});
 
             root.addChild(child);
-            ASSERT_EQ(&root, child->parent());
-            ASSERT_TRUE(kdl::vec_contains(root.children(), child));
-            ASSERT_EQ(1u, root.childCount());
-            ASSERT_EQ(4u, root.familySize());
-            ASSERT_EQ(2u, child->childCount());
-            ASSERT_EQ(3u, child->familySize());
+            CHECK(child->parent() == &root);
+            CHECK(kdl::vec_contains(root.children(), child));
+            CHECK(root.childCount() == 1u);
+            CHECK(root.familySize() == 4u);
+            CHECK(child->childCount() == 2u);
+            CHECK(child->familySize() == 3u);
+        }
+
+        TEST_CASE("NodeTest.replaceChildren") {
+            auto root = TestNode{};
+            auto* child1 = new TestNode{};
+            auto* child2 = new TestNode{};
+
+            root.addChildren({child1, child2});
+
+            auto child3Ptr = std::make_unique<TestNode>();
+            auto* child3 = child3Ptr.get();
+
+            auto newChildren = std::vector<std::unique_ptr<Node>>{};
+            newChildren.push_back(std::move(child3Ptr));
+
+            const auto oldChildren = root.replaceChildren(std::move(newChildren));
+            
+            CHECK(oldChildren.size() == 2u);
+            CHECK_THAT(kdl::vec_transform(oldChildren, [](const auto& c) { return c.get(); }), Catch::UnorderedEquals(std::vector<Node*>{child1, child2}));
+            CHECK(child1->parent() == nullptr);
+            CHECK(child2->parent() == nullptr);
+
+            CHECK_THAT(root.children(), Catch::UnorderedEquals(std::vector<Node*>{child3}));
+            CHECK(child3->parent() == &root);
         }
 
         TEST_CASE("NodeTest.partialSelection", "[NodeTest]") {
@@ -354,34 +376,34 @@ namespace TrenchBroom {
             root.addChild(child1);
             root.addChild(child2);
 
-            ASSERT_EQ(0u, root.descendantSelectionCount());
+            CHECK(root.descendantSelectionCount() == 0u);
             child1->select();
-            ASSERT_EQ(0u, child1->descendantSelectionCount());
-            ASSERT_EQ(1u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 0u);
+            CHECK(root.descendantSelectionCount() == 1u);
             child2->select();
-            ASSERT_EQ(0u, child1->descendantSelectionCount());
-            ASSERT_EQ(0u, child2->descendantSelectionCount());
-            ASSERT_EQ(2u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 0u);
+            CHECK(child2->descendantSelectionCount() == 0u);
+            CHECK(root.descendantSelectionCount() == 2u);
 
             child1->deselect();
-            ASSERT_EQ(0u, child1->descendantSelectionCount());
-            ASSERT_EQ(1u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 0u);
+            CHECK(root.descendantSelectionCount() == 1u);
 
             grandChild1_1->select();
             child1->addChild(grandChild1_1);
-            ASSERT_EQ(1u, child1->descendantSelectionCount());
-            ASSERT_EQ(2u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 1u);
+            CHECK(root.descendantSelectionCount() == 2u);
 
             child1->addChild(grandChild1_2);
-            ASSERT_EQ(1u, child1->descendantSelectionCount());
-            ASSERT_EQ(2u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 1u);
+            CHECK(root.descendantSelectionCount() == 2u);
             grandChild1_2->select();
-            ASSERT_EQ(2u, child1->descendantSelectionCount());
-            ASSERT_EQ(3u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 2u);
+            CHECK(root.descendantSelectionCount() == 3u);
 
             grandChild1_1->deselect();
-            ASSERT_EQ(1u, child1->descendantSelectionCount());
-            ASSERT_EQ(2u, root.descendantSelectionCount());
+            CHECK(child1->descendantSelectionCount() == 1u);
+            CHECK(root.descendantSelectionCount() == 2u);
         }
 
         TEST_CASE("NodeTest.isAncestorOf", "[NodeTest]") {
@@ -396,41 +418,41 @@ namespace TrenchBroom {
             child1->addChild(grandChild1_1);
             child1->addChild(grandChild1_2);
 
-            ASSERT_FALSE(root.isAncestorOf(&root));
-            ASSERT_TRUE(root.isAncestorOf(child1));
-            ASSERT_TRUE(root.isAncestorOf(child2));
-            ASSERT_TRUE(root.isAncestorOf(grandChild1_1));
-            ASSERT_TRUE(root.isAncestorOf(grandChild1_2));
+            CHECK_FALSE(root.isAncestorOf(&root));
+            CHECK(root.isAncestorOf(child1));
+            CHECK(root.isAncestorOf(child2));
+            CHECK(root.isAncestorOf(grandChild1_1));
+            CHECK(root.isAncestorOf(grandChild1_2));
 
-            ASSERT_FALSE(child1->isAncestorOf(&root));
-            ASSERT_FALSE(child1->isAncestorOf(child1));
-            ASSERT_FALSE(child1->isAncestorOf(child2));
-            ASSERT_TRUE(child1->isAncestorOf(grandChild1_1));
-            ASSERT_TRUE(child1->isAncestorOf(grandChild1_2));
+            CHECK_FALSE(child1->isAncestorOf(&root));
+            CHECK_FALSE(child1->isAncestorOf(child1));
+            CHECK_FALSE(child1->isAncestorOf(child2));
+            CHECK(child1->isAncestorOf(grandChild1_1));
+            CHECK(child1->isAncestorOf(grandChild1_2));
 
-            ASSERT_FALSE(child2->isAncestorOf(&root));
-            ASSERT_FALSE(child2->isAncestorOf(child1));
-            ASSERT_FALSE(child2->isAncestorOf(child2));
-            ASSERT_FALSE(child2->isAncestorOf(grandChild1_1));
-            ASSERT_FALSE(child2->isAncestorOf(grandChild1_2));
+            CHECK_FALSE(child2->isAncestorOf(&root));
+            CHECK_FALSE(child2->isAncestorOf(child1));
+            CHECK_FALSE(child2->isAncestorOf(child2));
+            CHECK_FALSE(child2->isAncestorOf(grandChild1_1));
+            CHECK_FALSE(child2->isAncestorOf(grandChild1_2));
 
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(&root));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(child1));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(child2));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(grandChild1_1));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(grandChild1_2));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(&root));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(child1));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(child2));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(grandChild1_1));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(grandChild1_2));
 
-            ASSERT_FALSE(grandChild1_2->isAncestorOf(&root));
-            ASSERT_FALSE(grandChild1_2->isAncestorOf(child1));
-            ASSERT_FALSE(grandChild1_2->isAncestorOf(child2));
-            ASSERT_FALSE(grandChild1_2->isAncestorOf(grandChild1_1));
-            ASSERT_FALSE(grandChild1_2->isAncestorOf(grandChild1_2));
+            CHECK_FALSE(grandChild1_2->isAncestorOf(&root));
+            CHECK_FALSE(grandChild1_2->isAncestorOf(child1));
+            CHECK_FALSE(grandChild1_2->isAncestorOf(child2));
+            CHECK_FALSE(grandChild1_2->isAncestorOf(grandChild1_1));
+            CHECK_FALSE(grandChild1_2->isAncestorOf(grandChild1_2));
 
-            ASSERT_TRUE(root.isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_TRUE(child1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_FALSE(child2->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_FALSE(grandChild1_1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(root.isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(child1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK_FALSE(child2->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK_FALSE(grandChild1_1->isAncestorOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
         }
 
         TEST_CASE("NodeTest.isDescendantOf", "[NodeTest]") {
@@ -445,41 +467,41 @@ namespace TrenchBroom {
             child1->addChild(grandChild1_1);
             child1->addChild(grandChild1_2);
 
-            ASSERT_FALSE(root.isDescendantOf(&root));
-            ASSERT_FALSE(root.isDescendantOf(child1));
-            ASSERT_FALSE(root.isDescendantOf(child2));
-            ASSERT_FALSE(root.isDescendantOf(grandChild1_1));
-            ASSERT_FALSE(root.isDescendantOf(grandChild1_2));
+            CHECK_FALSE(root.isDescendantOf(&root));
+            CHECK_FALSE(root.isDescendantOf(child1));
+            CHECK_FALSE(root.isDescendantOf(child2));
+            CHECK_FALSE(root.isDescendantOf(grandChild1_1));
+            CHECK_FALSE(root.isDescendantOf(grandChild1_2));
 
-            ASSERT_TRUE(child1->isDescendantOf(&root));
-            ASSERT_FALSE(child1->isDescendantOf(child1));
-            ASSERT_FALSE(child1->isDescendantOf(child2));
-            ASSERT_FALSE(child1->isDescendantOf(grandChild1_1));
-            ASSERT_FALSE(child1->isDescendantOf(grandChild1_2));
+            CHECK(child1->isDescendantOf(&root));
+            CHECK_FALSE(child1->isDescendantOf(child1));
+            CHECK_FALSE(child1->isDescendantOf(child2));
+            CHECK_FALSE(child1->isDescendantOf(grandChild1_1));
+            CHECK_FALSE(child1->isDescendantOf(grandChild1_2));
 
-            ASSERT_TRUE(child2->isDescendantOf(&root));
-            ASSERT_FALSE(child2->isDescendantOf(child1));
-            ASSERT_FALSE(child2->isDescendantOf(child2));
-            ASSERT_FALSE(child2->isDescendantOf(grandChild1_1));
-            ASSERT_FALSE(child2->isDescendantOf(grandChild1_2));
+            CHECK(child2->isDescendantOf(&root));
+            CHECK_FALSE(child2->isDescendantOf(child1));
+            CHECK_FALSE(child2->isDescendantOf(child2));
+            CHECK_FALSE(child2->isDescendantOf(grandChild1_1));
+            CHECK_FALSE(child2->isDescendantOf(grandChild1_2));
 
-            ASSERT_TRUE(grandChild1_1->isDescendantOf(&root));
-            ASSERT_TRUE(grandChild1_1->isDescendantOf(child1));
-            ASSERT_FALSE(grandChild1_1->isDescendantOf(child2));
-            ASSERT_FALSE(grandChild1_1->isDescendantOf(grandChild1_1));
-            ASSERT_FALSE(grandChild1_1->isDescendantOf(grandChild1_2));
+            CHECK(grandChild1_1->isDescendantOf(&root));
+            CHECK(grandChild1_1->isDescendantOf(child1));
+            CHECK_FALSE(grandChild1_1->isDescendantOf(child2));
+            CHECK_FALSE(grandChild1_1->isDescendantOf(grandChild1_1));
+            CHECK_FALSE(grandChild1_1->isDescendantOf(grandChild1_2));
 
-            ASSERT_TRUE(grandChild1_2->isDescendantOf(&root));
-            ASSERT_TRUE(grandChild1_2->isDescendantOf(child1));
-            ASSERT_FALSE(grandChild1_2->isDescendantOf(child2));
-            ASSERT_FALSE(grandChild1_2->isDescendantOf(grandChild1_1));
-            ASSERT_FALSE(grandChild1_2->isDescendantOf(grandChild1_2));
+            CHECK(grandChild1_2->isDescendantOf(&root));
+            CHECK(grandChild1_2->isDescendantOf(child1));
+            CHECK_FALSE(grandChild1_2->isDescendantOf(child2));
+            CHECK_FALSE(grandChild1_2->isDescendantOf(grandChild1_1));
+            CHECK_FALSE(grandChild1_2->isDescendantOf(grandChild1_2));
 
-            ASSERT_FALSE(root.isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_TRUE(child1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_TRUE(child2->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_TRUE(grandChild1_1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
-            ASSERT_TRUE(grandChild1_1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK_FALSE(root.isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(child1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(child2->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(grandChild1_1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
+            CHECK(grandChild1_1->isDescendantOf(std::vector<Node*>{ &root, child1, child2, grandChild1_1, grandChild1_2 }));
         }
 
         enum class Visited {
@@ -490,7 +512,7 @@ namespace TrenchBroom {
             Brush
         };
 
-        std::ostream& operator<<(std::ostream& str, const Visited visited) {
+        static std::ostream& operator<<(std::ostream& str, const Visited visited) {
             switch (visited) {
                 case Visited::World:
                     return str << "World";
@@ -526,10 +548,10 @@ namespace TrenchBroom {
             const auto worldBounds = vm::bbox3(8192.0);
 
             WorldNode world(Entity(), MapFormat::Standard);
-            LayerNode layer("name");
-            GroupNode group("name");
+            LayerNode layer(Layer("name"));
+            GroupNode group(Group("name"));
             EntityNode entity;
-            BrushNode brush(BrushBuilder(&world, worldBounds).createCube(32.0, "texture").value());
+            BrushNode brush(BrushBuilder(world.mapFormat(), worldBounds).createCube(32.0, "texture").value());
 
             SECTION("Non const nodes accept non const visitor") {
                 CHECK(world.accept(nodeTestVisitor) == Visited::World);
@@ -560,15 +582,15 @@ namespace TrenchBroom {
             WorldNode world(Entity(), MapFormat::Standard);
             auto* layer = world.defaultLayer();
 
-            auto* entity1 = world.createEntity(Entity());
-            auto* entity2 = world.createEntity(Entity());
-            auto* group = world.createGroup("name");
-            auto* groupEntity = world.createEntity(Entity());
+            auto* entityNode1 = new EntityNode(Entity());
+            auto* entityNode2 = new EntityNode(Entity());
+            auto* groupNode = new Model::GroupNode(Model::Group("name"));
+            auto* groupEntityNode = new EntityNode(Entity());
 
-            layer->addChild(entity1);
-            layer->addChild(entity2);
-            layer->addChild(group);
-            group->addChild(groupEntity);
+            layer->addChild(entityNode1);
+            layer->addChild(entityNode2);
+            layer->addChild(groupNode);
+            groupNode->addChild(groupEntityNode);
 
             const auto collectRecursively = [](auto& node) {
                 auto result = std::vector<Node*>{};
@@ -582,9 +604,9 @@ namespace TrenchBroom {
                 return result;
             };
 
-            CHECK_THAT(collectRecursively(world), Catch::Equals(std::vector<Node*>{&world, layer, entity1, entity2, group, groupEntity}));
-            CHECK_THAT(collectRecursively(*group), Catch::Equals(std::vector<Node*>{group, groupEntity}));
-            CHECK_THAT(collectRecursively(*entity1), Catch::Equals(std::vector<Node*>{entity1}));
+            CHECK_THAT(collectRecursively(world), Catch::Equals(std::vector<Node*>{ &world, layer, entityNode1, entityNode2, groupNode, groupEntityNode}));
+            CHECK_THAT(collectRecursively(*groupNode), Catch::Equals(std::vector<Node*>{ groupNode, groupEntityNode}));
+            CHECK_THAT(collectRecursively(*entityNode1), Catch::Equals(std::vector<Node*>{ entityNode1}));
         }
 
         TEST_CASE("NodeTest.visitParent", "[NodeTest]") {
@@ -613,8 +635,8 @@ namespace TrenchBroom {
 
         TEST_CASE("NodeTest.visitAll", "[NodeTest]") {
             WorldNode world(Entity(), MapFormat::Standard);
-            LayerNode layer("name");
-            GroupNode group("name");
+            LayerNode layer(Layer("name"));
+            GroupNode group(Group("name"));
             EntityNode entity;
 
             const auto toVisit = std::vector<Node*>{&world, &layer, &group, &entity};
@@ -628,10 +650,10 @@ namespace TrenchBroom {
             WorldNode world(Entity(), MapFormat::Standard);
             auto* layer = world.defaultLayer();
             
-            auto* entity1 = world.createEntity(Entity());
-            auto* entity2 = world.createEntity(Entity());
-            layer->addChild(entity1);
-            layer->addChild(entity2);
+            auto* entityNode1 = new EntityNode(Entity());
+            auto* entityNode2 = new EntityNode(Entity());
+            layer->addChild(entityNode1);
+            layer->addChild(entityNode2);
 
             SECTION("Visit children of world node") {
                 auto visited = std::vector<Node*>{};
@@ -642,14 +664,52 @@ namespace TrenchBroom {
             SECTION("Visit children of layer node") {
                 auto visited = std::vector<Node*>{};
                 layer->visitChildren(makeCollectVisitedNodesVisitor(visited));
-                CHECK_THAT(visited, Catch::Equals(std::vector<Node*>{entity1, entity2}));
+                CHECK_THAT(visited, Catch::Equals(std::vector<Node*>{ entityNode1, entityNode2}));
             }
 
             SECTION("Visit children of entity node") {
                 auto visited = std::vector<Node*>{};
-                entity1->visitChildren(makeCollectVisitedNodesVisitor(visited));
+                entityNode1->visitChildren(makeCollectVisitedNodesVisitor(visited));
                 CHECK_THAT(visited, Catch::Equals(std::vector<Node*>{}));
             }
+        }
+
+        TEST_CASE("NodeTest.pathFrom", "[NodeTest]") {
+            auto root = TestNode{};
+            auto& child1 = root.addChild(new TestNode{});
+            auto& child2 = root.addChild(new TestNode{});
+            auto& child1_1 = child1.addChild(new TestNode{});
+            auto& child1_2 = child1.addChild(new TestNode{});
+            auto& child1_1_1 = child1_1.addChild(new TestNode{});
+
+            CHECK(child1_1_1.pathFrom(root) == NodePath{{0, 0, 0}});
+            CHECK(child1_1_1.pathFrom(child1) == NodePath{{0, 0}});
+            CHECK(child1_1_1.pathFrom(child1_1) == NodePath{{0}});
+            CHECK(child1_1_1.pathFrom(child1_1_1) == NodePath{{}});
+
+            CHECK(child2.pathFrom(root) == NodePath{{1}});
+            CHECK(child1_2.pathFrom(root) == NodePath{{0, 1}});
+            CHECK(root.pathFrom(root) == NodePath{{}});
+        }
+
+        TEST_CASE("Nodepath.resolvePath", "[NodeTest]") {
+            auto root = TestNode{};
+            auto& child1 = root.addChild(new TestNode{});
+            auto& child2 = root.addChild(new TestNode{});
+            auto& child1_1 = child1.addChild(new TestNode{});
+            auto& child1_2 = child1.addChild(new TestNode{});
+            auto& child1_1_1 = child1_1.addChild(new TestNode{});
+
+            CHECK(root.resolvePath(NodePath{{}}) == &root);
+            CHECK(root.resolvePath(NodePath{{0}}) == &child1);
+            CHECK(root.resolvePath(NodePath{{1}}) == &child2);
+            CHECK(root.resolvePath(NodePath{{2}}) == nullptr);
+            CHECK(root.resolvePath(NodePath{{0, 0}}) == &child1_1);
+            CHECK(root.resolvePath(NodePath{{0, 0, 0}}) == &child1_1_1);
+            CHECK(root.resolvePath(NodePath{{0, 1}}) == &child1_2);
+            CHECK(child1.resolvePath(NodePath{{0, 0}}) == &child1_1_1);
+            CHECK(child1_1.resolvePath(NodePath{{0}}) == &child1_1_1);
+            CHECK(child1_1_1.resolvePath(NodePath{{}}) == &child1_1_1);
         }
     }
 }

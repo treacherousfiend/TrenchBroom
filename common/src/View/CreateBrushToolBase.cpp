@@ -50,7 +50,7 @@ namespace TrenchBroom {
                 auto document = kdl::mem_lock(m_document);
                 const Transaction transaction(document, "Create Brush");
                 document->deselectAll();
-                document->addNode(m_brush, document->parentForNodes());
+                document->addNodes({{document->parentForNodes(), {m_brush}}});
                 document->select(m_brush);
                 m_brush = nullptr;
                 doBrushWasCreated();
@@ -75,7 +75,7 @@ namespace TrenchBroom {
             m_brushRenderer->setEdgeColor(pref(Preferences::SelectedEdgeColor));
             m_brushRenderer->setShowEdges(true);
             m_brushRenderer->setShowOccludedEdges(true);
-            m_brushRenderer->setOccludedEdgeColor(pref(Preferences::OccludedSelectedEdgeColor));
+            m_brushRenderer->setOccludedEdgeColor(Color(pref(Preferences::SelectedEdgeColor), pref(Preferences::OccludedSelectedEdgeAlpha)));
             m_brushRenderer->setTint(true);
             m_brushRenderer->setTintColor(pref(Preferences::SelectedFaceColor));
             m_brushRenderer->setForceTransparent(true);

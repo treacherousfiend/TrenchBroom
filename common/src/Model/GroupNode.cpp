@@ -19,18 +19,25 @@
 
 #include "GroupNode.h"
 
+#include "Ensure.h"
 #include "FloatType.h"
+#include "Model/Brush.h"
 #include "Model/BrushNode.h"
+#include "Model/Entity.h"
 #include "Model/EntityNode.h"
-#include "Model/GroupSnapshot.h"
 #include "Model/IssueGenerator.h"
 #include "Model/LayerNode.h"
 #include "Model/ModelUtils.h"
 #include "Model/PickResult.h"
 #include "Model/TagVisitor.h"
+#include "Model/UpdateLinkedGroupsError.h"
 #include "Model/WorldNode.h"
 
+#include <kdl/overload.h>
 #include <kdl/result.h>
+#include <kdl/result_for_each.h>
+#include <kdl/string_utils.h>
+#include <kdl/vector_utils.h>
 
 #include <vecmath/ray.h>
 
@@ -39,41 +46,197 @@
 
 namespace TrenchBroom {
     namespace Model {
-        GroupNode::GroupNode(const std::string& name) :
-        m_editState(Edit_Closed),
-        m_boundsValid(false) {
-            setName(name);
+        static kdl::result<std::vector<std::unique_ptr<Node>>, UpdateLinkedGroupsError> cloneAndTransformChildren(const Node& node, const vm::bbox3& worldBounds, const vm::mat4x4& transformation) {
+            using VisitResult = kdl::result<std::unique_ptr<Node>, UpdateLinkedGroupsError>;
+            return kdl::for_each_result(node.children(), [&](const auto* childNode) {
+                return childNode->accept(kdl::overload(
+                    [] (const WorldNode*) -> VisitResult { ensure(false, "Linked group structure is valid"); },
+                    [] (const LayerNode*) -> VisitResult { ensure(false, "Linked group structure is valid"); },
+                    [&](const GroupNode* groupNode) -> VisitResult {
+                        auto group = groupNode->group();
+                        group.transform(transformation);
+                        return std::make_unique<GroupNode>(std::move(group));
+                    },
+                    [&](const EntityNode* entityNode)-> VisitResult {
+                        auto entity = entityNode->entity();
+                        entity.transform(transformation);
+                        return std::make_unique<EntityNode>(std::move(entity));
+                    },
+                    [&](const BrushNode* brushNode) -> VisitResult {
+                        auto brush = brushNode->brush();
+                        return brush.transform(worldBounds, transformation, true)
+                            .and_then([&]() -> kdl::result<std::unique_ptr<Node>, BrushError> {
+                                return std::make_unique<BrushNode>(std::move(brush));
+                            }).map_errors([](const BrushError&) -> VisitResult { 
+                                return UpdateLinkedGroupsError::TransformFailed;
+                            });
+                    }
+                )).and_then([&](std::unique_ptr<Node>&& newChildNode) -> VisitResult {
+                    if (!worldBounds.contains(newChildNode->logicalBounds())) {
+                        return UpdateLinkedGroupsError::UpdateExceedsWorldBounds;
+                    }
+                    return cloneAndTransformChildren(*childNode, worldBounds, transformation)
+                        .and_then([&](std::vector<std::unique_ptr<Node>>&& newChildren) -> VisitResult {
+                            newChildNode->addChildren(kdl::vec_transform(std::move(newChildren), [](std::unique_ptr<Node>&& child) { return child.release(); }));
+                            return std::move(newChildNode);
+                        });
+                });
+            });
         }
 
-        void GroupNode::setName(const std::string& name) {
-            auto entity = m_entity;
-            entity.addOrUpdateAttribute(AttributeNames::GroupName, name);
-            setEntity(std::move(entity));
+        template <typename T>
+        static void preserveGroupNames(const std::vector<T>& clonedNodes, const std::vector<Model::Node*>& correspondingNodes) {
+            auto clIt = std::begin(clonedNodes);
+            auto coIt = std::begin(correspondingNodes);
+            while (clIt != std::end(clonedNodes) && coIt != std::end(correspondingNodes)) {
+                auto& clonedNode = *clIt;
+                const auto* correspondingNode = *coIt;
+
+                clonedNode->accept(kdl::overload(
+                    [] (WorldNode*) {},
+                    [] (LayerNode*) {},
+                    [&](GroupNode* clonedGroupNode) {
+                        if (const auto* correspondingGroupNode = dynamic_cast<const GroupNode*>(correspondingNode)) {
+                            auto group = clonedGroupNode->group();
+                            group.setName(correspondingGroupNode->group().name());
+                            clonedGroupNode->setGroup(std::move(group));
+                            
+                            preserveGroupNames(clonedGroupNode->children(), correspondingGroupNode->children());
+                        }
+                    },
+                    [] (EntityNode*) {},
+                    [] (BrushNode*) {}
+                ));
+
+                ++clIt;
+                ++coIt;
+            }
+        }
+
+        static void preserveEntityProperties(EntityNode& clonedEntityNode, const EntityNode& correspondingEntityNode) {
+            if (clonedEntityNode.entity().protectedProperties().empty() && 
+                correspondingEntityNode.entity().protectedProperties().empty()) {
+                return;
+            }
+
+            auto clonedEntity = clonedEntityNode.entity();
+            const auto& correspondingEntity = correspondingEntityNode.entity();
+
+            const auto allProtectedProperties = kdl::vec_sort_and_remove_duplicates(
+                kdl::vec_concat(
+                    clonedEntity.protectedProperties(),
+                    correspondingEntity.protectedProperties()));
+
+            clonedEntity.setProtectedProperties(correspondingEntity.protectedProperties());
+
+            for (const auto& propertyKey : allProtectedProperties) {
+                // this can change the order of properties
+                clonedEntity.removeProperty(propertyKey);
+                if (const auto* propertyValue = correspondingEntity.property(propertyKey)) {
+                    clonedEntity.addOrUpdateProperty(propertyKey, *propertyValue);
+                }
+            }
+
+            clonedEntityNode.setEntity(std::move(clonedEntity));
+        }
+
+        template <typename T>
+        static void preserveEntityProperties(const std::vector<T>& clonedNodes, const std::vector<Node*>& correspondingNodes) {
+            auto clIt = std::begin(clonedNodes);
+            auto coIt = std::begin(correspondingNodes);
+            while (clIt != std::end(clonedNodes) && coIt != std::end(correspondingNodes)) {
+                auto& clonedNode = *clIt; // deduces either to std::unique_ptr<Node>& or Node*& depending on T
+                const auto* correspondingNode = *coIt;
+
+                clonedNode->accept(kdl::overload(
+                    [] (WorldNode*) {},
+                    [] (LayerNode*) {},
+                    [&](GroupNode* clonedGroupNode) {
+                        if (const auto* correspondingGroupNode = dynamic_cast<const GroupNode*>(correspondingNode)) {
+                            preserveEntityProperties(clonedGroupNode->children(), correspondingGroupNode->children());
+                        }
+                    },
+                    [&](EntityNode* clonedEntityNode) {
+                        if (const auto* correspondingEntityNode = dynamic_cast<const EntityNode*>(correspondingNode)) {
+                            preserveEntityProperties(*clonedEntityNode, *correspondingEntityNode);
+                        }
+                    },
+                    [] (BrushNode*) {}
+                ));
+
+                ++clIt;
+                ++coIt;
+            }
+        }
+
+        kdl::result<UpdateLinkedGroupsResult, UpdateLinkedGroupsError> updateLinkedGroups(const GroupNode& sourceGroupNode, const std::vector<Model::GroupNode*>& targetGroupNodes, const vm::bbox3& worldBounds) {
+            const auto& sourceGroup = sourceGroupNode.group();
+            const auto [success, invertedSourceTransformation] = vm::invert(sourceGroup.transformation());
+            if (!success) {
+                return UpdateLinkedGroupsError::TransformIsNotInvertible;
+            }
+
+            const auto _invertedSourceTransformation = invertedSourceTransformation;
+            const auto targetGroupNodesToUpdate = kdl::vec_erase(targetGroupNodes, &sourceGroupNode);
+            return kdl::for_each_result(targetGroupNodesToUpdate, [&](auto* targetGroupNode) {
+                const auto transformation = targetGroupNode->group().transformation() * _invertedSourceTransformation;
+                return cloneAndTransformChildren(sourceGroupNode, worldBounds, transformation)
+                    .and_then([&](std::vector<std::unique_ptr<Node>>&& newChildren) -> kdl::result<std::pair<Node*, std::vector<std::unique_ptr<Node>>>, UpdateLinkedGroupsError> {
+                        preserveGroupNames(newChildren, targetGroupNode->children());
+                        preserveEntityProperties(newChildren, targetGroupNode->children());
+
+                        return std::make_pair(targetGroupNode, std::move(newChildren));
+                    });
+            });
+        }
+
+        GroupNode::GroupNode(Group group) :
+        m_group(std::move(group)),
+        m_editState(EditState::Closed),
+        m_boundsValid(false) {}
+
+        const Group& GroupNode::group() const {
+            return m_group;
+        }
+
+        Group GroupNode::setGroup(Group group) {
+            using std::swap;
+            swap(m_group, group);
+            return group;
         }
 
         bool GroupNode::opened() const {
-            return m_editState == Edit_Open;
+            return m_editState == EditState::Open;
         }
 
         bool GroupNode::hasOpenedDescendant() const {
-            return m_editState == Edit_DescendantOpen;
+            return m_editState == EditState::DescendantOpen;
         }
 
         bool GroupNode::closed() const {
-            return m_editState == Edit_Closed;
+            return m_editState == EditState::Closed;
         }
 
         void GroupNode::open() {
-            assert(m_editState == Edit_Closed);
-            setEditState(Edit_Open);
+            assert(m_editState == EditState::Closed);
+            setEditState(EditState::Open);
             openAncestors();
         }
 
         void GroupNode::close() {
-            assert(m_editState == Edit_Open);
-            setEditState(Edit_Closed);
+            assert(m_editState == EditState::Open);
+            setEditState(EditState::Closed);
             closeAncestors();
         }
+
+        const std::optional<IdType>& GroupNode::persistentId() const {
+            return m_persistentId;
+        }
+
+        void GroupNode::setPersistentId(const IdType persistentId) {
+            m_persistentId = persistentId;
+        }
+
 
         void GroupNode::setEditState(const EditState editState) {
             m_editState = editState;
@@ -90,17 +253,15 @@ namespace TrenchBroom {
         }
 
         void GroupNode::openAncestors() {
-            setAncestorEditState(Edit_DescendantOpen);
+            setAncestorEditState(EditState::DescendantOpen);
         }
 
         void GroupNode::closeAncestors() {
-            setAncestorEditState(Edit_Closed);
+            setAncestorEditState(EditState::Closed);
         }
 
         const std::string& GroupNode::doGetName() const {
-            static const auto NoName = std::string("");
-            const auto* value = entity().attribute(AttributeNames::GroupName);
-            return value ? *value : NoName;
+            return m_group.name();
         }
 
         const vm::bbox3& GroupNode::doGetLogicalBounds() const {
@@ -118,13 +279,9 @@ namespace TrenchBroom {
         }
 
         Node* GroupNode::doClone(const vm::bbox3& /* worldBounds */) const {
-            GroupNode* group = new GroupNode(doGetName());
+            GroupNode* group = new GroupNode(m_group);
             cloneAttributes(group);
             return group;
-        }
-
-        NodeSnapshot* GroupNode::doTakeSnapshot() {
-            return new GroupSnapshot(this);
         }
 
         bool GroupNode::doCanAddChild(const Node* child) const {
@@ -150,11 +307,11 @@ namespace TrenchBroom {
         }
 
         void GroupNode::doChildWasAdded(Node* /* node */) {
-            nodePhysicalBoundsDidChange(physicalBounds());
+            nodePhysicalBoundsDidChange();
         }
 
         void GroupNode::doChildWasRemoved(Node* /* node */) {
-            nodePhysicalBoundsDidChange(physicalBounds());
+            nodePhysicalBoundsDidChange();
         }
 
         void GroupNode::doNodePhysicalBoundsDidChange() {
@@ -162,11 +319,8 @@ namespace TrenchBroom {
         }
 
         void GroupNode::doChildPhysicalBoundsDidChange() {
-            const vm::bbox3 myOldBounds = physicalBounds();
             invalidateBounds();
-            if (physicalBounds() != myOldBounds) {
-                nodePhysicalBoundsDidChange(myOldBounds);
-            }
+            nodePhysicalBoundsDidChange();
         }
 
         bool GroupNode::doSelectable() const {
@@ -204,54 +358,16 @@ namespace TrenchBroom {
             visitor.visit(this);
         }
 
-        void GroupNode::doAttributesDidChange(const vm::bbox3& /* oldBounds */) {
-        }
-
-        vm::vec3 GroupNode::doGetLinkSourceAnchor() const {
-            return vm::vec3::zero();
-        }
-
-        vm::vec3 GroupNode::doGetLinkTargetAnchor() const {
-            return vm::vec3::zero();
-        }
-
         Node* GroupNode::doGetContainer() {
             return parent();
         }
 
-        LayerNode* GroupNode::doGetLayer() {
+        LayerNode* GroupNode::doGetContainingLayer() {
             return findContainingLayer(this);
         }
 
-        GroupNode* GroupNode::doGetGroup() {
+        GroupNode* GroupNode::doGetContainingGroup() {
             return findContainingGroup(this);
-        }
-
-        kdl::result<void, TransformError> GroupNode::doTransform(const vm::bbox3& worldBounds, const vm::mat4x4& transformation, const bool lockTextures) {
-            for (auto* child : children()) {
-                auto result = child->accept(kdl::overload(
-                    [](Model::WorldNode*) {
-                        return kdl::result<void, Model::TransformError>::success();
-                    },
-                    [](Model::LayerNode*) {
-                        return kdl::result<void, Model::TransformError>::success();
-                    },
-                    [&](Model::GroupNode* group) {
-                        return group->transform(worldBounds, transformation, lockTextures);
-                    },
-                    [&](Model::EntityNode* entity) {
-                        return entity->transform(worldBounds, transformation, lockTextures);
-                    },
-                    [&](Model::BrushNode* brush) {
-                        return brush->transform(worldBounds, transformation, lockTextures);
-                    }
-                ));
-                if (result.is_error()) {
-                    return result;
-                }
-            }
-
-            return kdl::result<void, TransformError>::success();
         }
 
         bool GroupNode::doContains(const Node* node) const {

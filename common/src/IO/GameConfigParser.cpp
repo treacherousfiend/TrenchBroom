@@ -165,11 +165,11 @@ namespace TrenchBroom {
             const Model::TexturePackageConfig packageConfig = parseTexturePackageConfig(value["package"]);
             const Model::PackageFormatConfig formatConfig = parsePackageFormatConfig(value["format"]);
             const Path palette(value["palette"].stringValue());
-            const std::string attribute = value["attribute"].stringValue();
+            const std::string property = value["attribute"].stringValue();
             const Path shaderSearchPath(value["shaderSearchPath"].stringValue());
             const std::vector<std::string> excludes = std::vector<std::string>(value["excludes"].asStringList());
 
-            return Model::TextureConfig(packageConfig, formatConfig, palette, attribute, shaderSearchPath, excludes);
+            return Model::TextureConfig(packageConfig, formatConfig, palette, property, shaderSearchPath, excludes);
         }
 
         Model::TexturePackageConfig GameConfigParser::parseTexturePackageConfig(const EL::Value& value) const {
@@ -202,7 +202,7 @@ namespace TrenchBroom {
 
             const std::vector<Path> defFilePaths = Path::asPaths(value["definitions"].asStringList());
             const std::vector<std::string> modelFormats = value["modelformats"].asStringSet();
-            const Color defaultColor = Color::parse(value["defaultcolor"].stringValue());
+            const Color defaultColor = Color::parse(value["defaultcolor"].stringValue()).value_or(Color());
 
             return Model::EntityConfig(defFilePaths, modelFormats, defaultColor);
         }
@@ -317,7 +317,7 @@ namespace TrenchBroom {
                 defaults.setSurfaceValue(static_cast<float>(value["surfaceValue"].numberValue()));
             }
             if (!value["color"].null()) {
-                defaults.setColor(Color::parse(value["color"].stringValue()));
+                defaults.setColor(Color::parse(value["color"].stringValue()).value_or(Color()));
             }
 
             return defaults;
@@ -497,27 +497,27 @@ namespace TrenchBroom {
                         value[i],
                         "["
                         "{'name': 'String'},"
-                        "{}"
+                        "{'description': 'String'}"
                         "]");
 
                 const std::string name = value[i]["name"].stringValue();
-
-                result.push_back(Model::CompilationTool{name});
+                if (!value[i]["description"].null()) {
+                    const std::string desc = value[i]["description"].stringValue();
+                    result.push_back(Model::CompilationTool{name, desc});
+                } else {
+                    result.push_back(Model::CompilationTool{name, std::nullopt});
+                }
             }
 
             return result;
         }
 
         std::optional<vm::bbox3> parseSoftMapBoundsString(const std::string& string) {
-            if (!vm::can_parse<double, 6u>(string)) {
-                return std::nullopt;
+            if (const auto v = vm::parse<double, 6u>(string)) {
+                return vm::bbox3(vm::vec3((*v)[0], (*v)[1], (*v)[2]),
+                                 vm::vec3((*v)[3], (*v)[4], (*v)[5]));
             }
-
-            const auto v = vm::parse<double, 6u>(string);
-            const auto bounds = vm::bbox3(vm::vec3(v[0], v[1], v[2]),
-                                          vm::vec3(v[3], v[4], v[5]));
-
-            return { bounds };
+            return std::nullopt;
         }
 
         std::string serializeSoftMapBoundsString(const vm::bbox3& bounds) {

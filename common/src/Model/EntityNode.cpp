@@ -22,9 +22,7 @@
 #include "Assets/EntityDefinition.h"
 #include "Assets/EntityModel.h"
 #include "Model/BrushNode.h"
-#include "Model/EntityAttributesVariableStore.h"
-#include "Model/EntityRotationPolicy.h"
-#include "Model/EntitySnapshot.h"
+#include "Model/EntityPropertiesVariableStore.h"
 #include "Model/IssueGenerator.h"
 #include "Model/ModelUtils.h"
 #include "Model/PickResult.h"
@@ -52,15 +50,15 @@ namespace TrenchBroom {
         const vm::bbox3 EntityNode::DefaultBounds(8.0);
 
         EntityNode::EntityNode() :
-        AttributableNode(),
-        Object() {}
+            EntityNodeBase(),
+            Object() {}
 
         EntityNode::EntityNode(Entity entity) :
-        AttributableNode(std::move(entity)),
-        Object() {}
+            EntityNodeBase(std::move(entity)),
+            Object() {}
 
-        EntityNode::EntityNode(std::initializer_list<EntityAttribute> attributes) :
-        EntityNode(Entity(std::move(attributes))) {}
+        EntityNode::EntityNode(std::initializer_list<EntityProperty> properties) :
+        EntityNode(Entity(std::move(properties))) {}
 
         FloatType EntityNode::area(vm::axis::type axis) const {
             const vm::vec3 size = physicalBounds().size();
@@ -70,7 +68,7 @@ namespace TrenchBroom {
                 case vm::axis::y:
                     return size.x() * size.z();
                 case vm::axis::z:
-                    return size.y() * size.z();
+                    return size.x() * size.y();
                 default:
                     return 0.0;
             }
@@ -82,9 +80,8 @@ namespace TrenchBroom {
         }
 
         void EntityNode::setModelFrame(const Assets::EntityModelFrame* modelFrame) {
-            const auto oldBounds = physicalBounds();
             m_entity.setModel(modelFrame);
-            nodePhysicalBoundsDidChange(oldBounds);
+            nodePhysicalBoundsDidChange();
         }
 
         const vm::bbox3& EntityNode::doGetLogicalBounds() const {
@@ -101,10 +98,6 @@ namespace TrenchBroom {
             auto* entity = new EntityNode(m_entity);
             cloneAttributes(entity);
             return entity;
-        }
-
-        NodeSnapshot* EntityNode::doTakeSnapshot() {
-            return new EntitySnapshot(this);
         }
 
         bool EntityNode::doCanAddChild(const Node* child) const {
@@ -131,12 +124,12 @@ namespace TrenchBroom {
 
         void EntityNode::doChildWasAdded(Node* /* node */) {
             m_entity.setPointEntity(!hasChildren());
-            nodePhysicalBoundsDidChange(physicalBounds());
+            nodePhysicalBoundsDidChange();
         }
 
         void EntityNode::doChildWasRemoved(Node* /* node */) {
             m_entity.setPointEntity(hasChildren());
-            nodePhysicalBoundsDidChange(physicalBounds());
+            nodePhysicalBoundsDidChange();
         }
 
         void EntityNode::doNodePhysicalBoundsDidChange() {
@@ -144,11 +137,8 @@ namespace TrenchBroom {
         }
 
         void EntityNode::doChildPhysicalBoundsDidChange() {
-            const vm::bbox3 myOldBounds = physicalBounds();
             invalidateBounds();
-            if (physicalBounds() != myOldBounds) {
-                nodePhysicalBoundsDidChange(myOldBounds);
-            }
+            nodePhysicalBoundsDidChange();
         }
 
         bool EntityNode::doSelectable() const {
@@ -218,8 +208,8 @@ namespace TrenchBroom {
             }
         }
 
-        void EntityNode::doAttributesDidChange(const vm::bbox3& oldBounds) {
-            nodePhysicalBoundsDidChange(oldBounds);
+        void EntityNode::doPropertiesDidChange(const vm::bbox3& /* oldBounds */) {
+            nodePhysicalBoundsDidChange();
         }
 
         vm::vec3 EntityNode::doGetLinkSourceAnchor() const {
@@ -234,39 +224,12 @@ namespace TrenchBroom {
             return parent();
         }
 
-        LayerNode* EntityNode::doGetLayer() {
+        LayerNode* EntityNode::doGetContainingLayer() {
             return findContainingLayer(this);
         }
 
-        GroupNode* EntityNode::doGetGroup() {
+        GroupNode* EntityNode::doGetContainingGroup() {
             return findContainingGroup(this);
-        }
-
-        kdl::result<void, TransformError> EntityNode::doTransform(const vm::bbox3& worldBounds, const vm::mat4x4& transformation, bool lockTextures) {
-            if (hasChildren()) {
-                const NotifyNodeChange nodeChange(this);
-
-                for (auto* child : children()) {
-                    const auto result = child->accept(kdl::overload(
-                        [] (WorldNode*)  { return kdl::result<void, TransformError>::success(); },
-                        [] (LayerNode*)  { return kdl::result<void, TransformError>::success(); },
-                        [] (GroupNode*)  { return kdl::result<void, TransformError>::success(); },
-                        [] (EntityNode*) { return kdl::result<void, TransformError>::success(); },
-                        [&](BrushNode* brush) {
-                            return brush->transform(worldBounds, transformation, lockTextures);
-                        }
-                    ));
-                    if (!result.is_success()) {
-                        return result;
-                    }
-                }
-            } else {
-                auto entity = m_entity;
-                entity.transform(transformation);
-                setEntity(std::move(entity));
-            }
-
-            return kdl::result<void, TransformError>::success();
         }
 
         bool EntityNode::doContains(const Node* node) const {

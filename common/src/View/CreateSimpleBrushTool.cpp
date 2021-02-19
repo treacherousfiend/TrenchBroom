@@ -24,12 +24,12 @@
 #include "Model/Brush.h"
 #include "Model/BrushBuilder.h"
 #include "Model/BrushError.h"
+#include "Model/BrushNode.h"
 #include "Model/WorldNode.h"
 #include "Model/Game.h"
 #include "View/MapDocument.h"
 
 #include <kdl/memory_utils.h>
-#include <kdl/overload.h>
 #include <kdl/result.h>
 
 namespace TrenchBroom {
@@ -40,18 +40,15 @@ namespace TrenchBroom {
         void CreateSimpleBrushTool::update(const vm::bbox3& bounds) {
             auto document = kdl::mem_lock(m_document);
             const auto game = document->game();
-            const auto builder = Model::BrushBuilder(document->world(), document->worldBounds(), game->defaultFaceAttribs());
+            const auto builder = Model::BrushBuilder(document->world()->mapFormat(), document->worldBounds(), game->defaultFaceAttribs());
 
             builder.createCuboid(bounds, document->currentTextureName())
-                .visit(kdl::overload(
-                    [&](Model::Brush&& b) {
-                        updateBrush(document->world()->createBrush(std::move(b)));
-                    },
-                    [&](const Model::BrushError e) {
-                        updateBrush(nullptr);
-                        document->error() << "Could not update brush: " << e;
-                    }
-                ));
+                .and_then([&](Model::Brush&& b) {
+                    updateBrush(new Model::BrushNode(std::move(b)));
+                }).handle_errors([&](const Model::BrushError e) {
+                    updateBrush(nullptr);
+                    document->error() << "Could not update brush: " << e;
+                });
         }
 
     }

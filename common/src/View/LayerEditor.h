@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_LayerEditor
-#define TrenchBroom_LayerEditor
+#pragma once
 
 #include <memory>
 #include <string>
@@ -68,9 +67,9 @@ namespace TrenchBroom {
             void isolateLayer(Model::LayerNode* layer);
 
             void onSelectAllInLayer();
+            bool canSelectAllInLayer() const;
 
             void onAddLayer();
-            std::string queryLayerName(const std::string& suggestion);
 
             void onRemoveLayer();
             bool canRemoveLayer() const;
@@ -101,4 +100,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_LayerEditor) */

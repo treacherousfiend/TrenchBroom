@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapView3D
-#define TrenchBroom_MapView3D
+#pragma once
 
 #include "View/MapViewBase.h"
 
@@ -70,7 +69,7 @@ namespace TrenchBroom {
             void updateFlyMode();
             void resetFlyModeKeys();
         private: // implement ToolBoxConnector interface
-            PickRequest doGetPickRequest(int x, int y) const override;
+            PickRequest doGetPickRequest(float x, float y) const override;
             Model::PickResult doPick(const vm::ray3& pickRay) const override;
         private: // implement RenderView interface
             void doUpdateViewport(int x, int y, int width, int height) override;
@@ -112,4 +111,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_MapView3D) */

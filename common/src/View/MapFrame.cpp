@@ -26,11 +26,11 @@
 #include "PreferenceManager.h"
 #include "TrenchBroomApp.h"
 #include "IO/PathQt.h"
-#include "Model/AttributableNode.h"
 #include "Model/BrushNode.h"
 #include "Model/EditorContext.h"
 #include "Model/Entity.h"
 #include "Model/EntityNode.h"
+#include "Model/EntityNodeBase.h"
 #include "Model/ExportFormat.h"
 #include "Model/Game.h"
 #include "Model/GameFactory.h"
@@ -208,6 +208,18 @@ namespace TrenchBroom {
 
         Logger& MapFrame::logger() const {
             return *m_console;
+        }
+
+        QAction* MapFrame::findAction(const IO::Path& path) {
+            const auto& actionManager = ActionManager::instance();
+            auto& actionsMap = actionManager.actionsMap();
+            if (const auto iAction = actionsMap.find(path); iAction != std::end(actionsMap)) {
+                const auto& action = iAction->second;
+                if (const auto iQAction = m_actionMap.find(action.get()); iQAction != std::end(m_actionMap)) {
+                    return iQAction->second;
+                }
+            }
+            return nullptr;
         }
 
         void MapFrame::updateTitle() {
@@ -417,11 +429,11 @@ namespace TrenchBroom {
             statusBar()->addWidget(m_statusBarLabel);
         }
 
-        static Model::AttributableNode* commonEntityForBrushList(const std::vector<Model::BrushNode*>& list) {
+        static Model::EntityNodeBase* commonEntityForBrushList(const std::vector<Model::BrushNode*>& list) {
             if (list.empty())
                 return nullptr;
 
-            Model::AttributableNode* firstEntity = list.front()->entity();
+            Model::EntityNodeBase* firstEntity = list.front()->entity();
             bool multipleEntities = false;
 
             for (const Model::BrushNode* brush : list) {
@@ -467,12 +479,12 @@ namespace TrenchBroom {
             QStringList pipeSeparatedSections;
 
             pipeSeparatedSections << QString::fromStdString(document->game()->gameName())
-                                  << QString::fromStdString(Model::formatName(document->world()->format()))
+                                  << QString::fromStdString(Model::formatName(document->world()->mapFormat()))
                                   << QString::fromStdString(document->currentLayer()->name());
 
             // open groups
             std::vector<Model::GroupNode*> groups;
-            for (Model::GroupNode* group = document->currentGroup(); group != nullptr; group = group->group()) {
+            for (Model::GroupNode* group = document->currentGroup(); group != nullptr; group = group->containingGroup()) {
                 groups.push_back(group);
             }
             if (!groups.empty()) {
@@ -495,7 +507,7 @@ namespace TrenchBroom {
 
             // selected brushes
             if (!selectedNodes.brushes().empty()) {
-                Model::AttributableNode* commonEntityNode = commonEntityForBrushList(selectedNodes.brushes());
+                Model::EntityNodeBase* commonEntityNode = commonEntityForBrushList(selectedNodes.brushes());
 
                 // if all selected brushes are from the same entity, print the entity name
                 std::string token = numberWithSuffix(selectedNodes.brushes().size(), "brush", "brushes");
@@ -764,7 +776,13 @@ namespace TrenchBroom {
             if (!confirmOrDiscardChanges()) {
                 return false;
             }
+            const auto startTime = std::chrono::high_resolution_clock::now();
             m_document->loadDocument(mapFormat, MapDocument::DefaultWorldBounds, game, path);
+            const auto endTime = std::chrono::high_resolution_clock::now();
+
+            logger().info() << "Loaded " << m_document->path() << " in "
+                                         << std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count() << "ms";
+
             return true;
         }
 
@@ -826,7 +844,7 @@ namespace TrenchBroom {
             if (!confirmRevertDocument()) {
                 return false;
             }
-            const auto mapFormat = m_document->world()->format();
+            const auto mapFormat = m_document->world()->mapFormat();
             const auto game = m_document->game();
             const auto path = m_document->path();
             m_document->loadDocument(mapFormat, MapDocument::DefaultWorldBounds, game, path);
@@ -1255,7 +1273,7 @@ namespace TrenchBroom {
 
         void MapFrame::groupSelectedObjects() {
             if (canGroupSelectedObjects()) {
-                const std::string name = queryGroupName(this);
+                const std::string name = queryGroupName(this, "Unnamed");
                 if (!name.empty()) {
                     m_document->groupSelection(name);
                 }
@@ -1280,7 +1298,9 @@ namespace TrenchBroom {
             if (canRenameSelectedGroups()) {
                 auto document = kdl::mem_lock(m_document);
                 assert(document->selectedNodes().hasOnlyGroups());
-                const std::string name = queryGroupName(this);
+
+                const std::string suggestion = document->selectedNodes().groups().front()->name();
+                const std::string name = queryGroupName(this, suggestion);
                 if (!name.empty()) {
                     document->renameGroups(name);
                 }
@@ -1559,8 +1579,9 @@ namespace TrenchBroom {
             bool ok = false;
             const QString str = QInputDialog::getText(this, "Move Camera", "Enter a position (x y z) for the camera.", QLineEdit::Normal, "0.0 0.0 0.0", &ok);
             if (ok) {
-                const vm::vec3 position = vm::parse<FloatType, 3>(str.toStdString());
-                m_mapView->moveCameraToPosition(position, true);
+                if (const auto position = vm::parse<FloatType, 3>(str.toStdString())) {
+                    m_mapView->moveCameraToPosition(*position, true);
+                }
             }
         }
 
@@ -1742,8 +1763,9 @@ namespace TrenchBroom {
             bool ok = false;
             const QString str = QInputDialog::getText(this, "Window Size", "Enter Size (W H)", QLineEdit::Normal, "1920 1080", &ok);
             if (ok) {
-                const auto size = vm::parse<int, 2>(str.toStdString());
-                resize(size.x(), size.y());
+                if (const auto size = vm::parse<int, 2>(str.toStdString())) {
+                    resize(size->x(), size->y());
+                }
             }
         }
 

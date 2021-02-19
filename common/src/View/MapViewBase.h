@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapViewBase
-#define TrenchBroom_MapViewBase
+#pragma once
 
 #include "View/ActionContext.h"
 #include "View/CameraLinkHelper.h"
@@ -172,6 +171,9 @@ namespace TrenchBroom {
             float moveTextureDistance(TextureActionMode mode) const;
             void rotateTextures(bool clockwise, TextureActionMode mode);
             float rotateTextureAngle(bool clockwise, TextureActionMode mode) const;
+            void flipTextures(vm::direction direction);
+            void resetTextures();
+            void resetTexturesToWorld();
         public: // tool mode actions
             void createComplexBrush();
 
@@ -321,4 +323,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_MapViewBase) */

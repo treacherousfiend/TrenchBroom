@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapFrame
-#define TrenchBroom_MapFrame
+#pragma once
 
 #include "Model/MapFormat.h"
 #include "View/Selection.h"
@@ -119,6 +118,7 @@ namespace TrenchBroom {
             std::shared_ptr<MapDocument> document() const;
         public: // getters and such
             Logger& logger() const;
+            QAction* findAction(const IO::Path& path);
         private: // title bar contents
             void updateTitle();
         private: // menu bar
@@ -387,4 +387,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_MapFrame) */

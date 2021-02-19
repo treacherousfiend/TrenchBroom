@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_UVView
-#define TrenchBroom_UVView
+#pragma once
 
 #include "FloatType.h"
 #include "Model/HitType.h"
@@ -98,6 +97,7 @@ namespace TrenchBroom {
             void doUpdateViewport(int x, int y, int width, int height) override;
             void doRender() override;
             bool doShouldRenderFocusIndicator() const override;
+            const Color& getBackgroundColor() override;
 
             void setupGL(Renderer::RenderContext& renderContext);
 
@@ -112,10 +112,9 @@ namespace TrenchBroom {
             void processEvent(const MouseEvent& event) override;
             void processEvent(const CancelEvent& event) override;
         private:
-            PickRequest doGetPickRequest(int x, int y) const override;
+            PickRequest doGetPickRequest(float x, float y) const override;
             Model::PickResult doPick(const vm::ray3& pickRay) const override;
         };
     }
 }
 
-#endif /* defined(TrenchBroom_UVView) */

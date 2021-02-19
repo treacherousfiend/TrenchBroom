@@ -26,8 +26,9 @@
 #include "Model/WorldNode.h"
 #include "View/MapDocumentTest.h"
 
+#include "TestUtils.h"
+
 #include "Catch2.h"
-#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace View {
@@ -35,42 +36,42 @@ namespace TrenchBroom {
 
         TEST_CASE_METHOD(SelectionCommandTest, "SelectionCommandTest.faceSelectionUndoAfterTranslationUndo") {
             Model::BrushNode* brushNode = createBrushNode();
-            ASSERT_EQ(vm::vec3::zero(), brushNode->logicalBounds().center());
+            CHECK(brushNode->logicalBounds().center() == vm::vec3::zero());
 
-            document->addNode(brushNode, document->parentForNodes());
+            addNode(*document, document->parentForNodes(), brushNode);
 
             const auto topFaceIndex = brushNode->brush().findFace(vm::vec3::pos_z());
             REQUIRE(topFaceIndex);
 
             // select the top face
             document->select({ brushNode, *topFaceIndex });
-            ASSERT_EQ(std::vector<Model::BrushFaceHandle>({{ brushNode, *topFaceIndex }}), document->selectedBrushFaces());
+            CHECK_THAT(document->selectedBrushFaces(), Catch::Equals(std::vector<Model::BrushFaceHandle>{{ brushNode, *topFaceIndex }}));
 
             // deselect it
             document->deselect({ brushNode, *topFaceIndex });
-            ASSERT_EQ(std::vector<Model::BrushFaceHandle>({}), document->selectedBrushFaces());
+            CHECK_THAT(document->selectedBrushFaces(), Catch::Equals(std::vector<Model::BrushFaceHandle>{}));
 
             // select the brush
             document->select(brushNode);
-            ASSERT_EQ(std::vector<Model::BrushNode*>({ brushNode }), document->selectedNodes().brushes());
+            CHECK_THAT(document->selectedNodes().brushes(), Catch::Equals(std::vector<Model::BrushNode*>{ brushNode }));
 
             // translate the brush
             document->translateObjects(vm::vec3(10.0, 0.0, 0.0));
-            ASSERT_EQ(vm::vec3(10.0, 0.0, 0.0), brushNode->logicalBounds().center());
+            CHECK(brushNode->logicalBounds().center() == vm::vec3(10.0, 0.0, 0.0));
 
             // Start undoing changes
 
             document->undoCommand();
-            ASSERT_EQ(vm::vec3::zero(), brushNode->logicalBounds().center());
-            ASSERT_EQ(std::vector<Model::BrushNode*>({ brushNode }), document->selectedNodes().brushes());
-            ASSERT_EQ(std::vector<Model::BrushFaceHandle>({}), document->selectedBrushFaces());
+            CHECK(brushNode->logicalBounds().center() == vm::vec3::zero());
+            CHECK_THAT(document->selectedNodes().brushes(), Catch::Equals(std::vector<Model::BrushNode*>{ brushNode }));
+            CHECK_THAT(document->selectedBrushFaces(), Catch::Equals(std::vector<Model::BrushFaceHandle>{}));
 
             document->undoCommand();
-            ASSERT_EQ(std::vector<Model::BrushNode*>({}), document->selectedNodes().brushes());
-            ASSERT_EQ(std::vector<Model::BrushFaceHandle>({}), document->selectedBrushFaces());
+            CHECK_THAT(document->selectedNodes().brushes(), Catch::Equals(std::vector<Model::BrushNode*>{}));
+            CHECK_THAT(document->selectedBrushFaces(), Catch::Equals(std::vector<Model::BrushFaceHandle>{}));
 
             document->undoCommand();
-            ASSERT_EQ(std::vector<Model::BrushFaceHandle>({{ brushNode, *topFaceIndex}}), document->selectedBrushFaces());
+            CHECK_THAT(document->selectedBrushFaces(), Catch::Equals(std::vector<Model::BrushFaceHandle>{{ brushNode, *topFaceIndex }}));
         }
     }
 }

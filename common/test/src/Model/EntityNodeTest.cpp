@@ -17,27 +17,41 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "Assets/EntityDefinition.h"
 #include "Model/BrushError.h"
 #include "Model/EntityNode.h"
 #include "Model/EntityRotationPolicy.h"
-#include "Model/EntityAttributes.h"
+#include "Model/EntityProperties.h"
 #include "Model/MapFormat.h"
 #include "Model/LayerNode.h"
 #include "Model/WorldNode.h"
 
 #include <kdl/result.h>
 
+#include <vecmath/bbox.h>
+#include <vecmath/bbox_io.h>
 #include <vecmath/vec.h>
+#include <vecmath/vec_io.h>
 #include <vecmath/mat_ext.h>
+#include "vecmath/util.h"
 
 #include <memory>
 #include <string>
 
 #include "Catch2.h"
-#include "GTestCompat.h"
 
 namespace TrenchBroom {
     namespace Model {
+        TEST_CASE("EntityNodeTest.area") {
+            auto definition = Assets::PointEntityDefinition("some_name", Color(), vm::bbox3(vm::vec3::zero(), vm::vec3(1.0, 2.0, 3.0)), "", {}, {});
+            auto entityNode = EntityNode{};
+            entityNode.setDefinition(&definition);
+
+            CHECK(entityNode.area(vm::axis::x) == 6.0);
+            CHECK(entityNode.area(vm::axis::y) == 3.0);
+            CHECK(entityNode.area(vm::axis::z) == 2.0);
+        }
+
         static const std::string TestClassname = "something";
 
         class EntityNodeTest {
@@ -49,7 +63,7 @@ namespace TrenchBroom {
             EntityNodeTest() {
                 m_worldBounds = vm::bbox3d(8192.0);
                 m_entity = new EntityNode({
-                    {AttributeNames::Classname, TestClassname}
+                    { PropertyKeys::Classname, TestClassname}
                 });
                 m_world = new WorldNode(Model::Entity(), MapFormat::Standard);
             }
@@ -63,24 +77,24 @@ namespace TrenchBroom {
             }
         };
 
-        TEST_CASE_METHOD(EntityNodeTest, "EntityNodeTest.originUpdateWithSetAttributes") {
+        TEST_CASE_METHOD(EntityNodeTest, "EntityNodeTest.originUpdateWithSetProperties") {
             const vm::vec3 newOrigin(10, 20, 30);
             const vm::bbox3 newBounds(newOrigin - (EntityNode::DefaultBounds.size() / 2.0),
                                       newOrigin + (EntityNode::DefaultBounds.size() / 2.0));
 
-            m_entity->setEntity(Entity({EntityAttribute("origin", "10 20 30")}));
-            EXPECT_EQ(newOrigin, m_entity->entity().origin());
-            EXPECT_EQ(newBounds, m_entity->logicalBounds());
+            m_entity->setEntity(Entity({ EntityProperty("origin", "10 20 30")}));
+            CHECK(m_entity->entity().origin() == newOrigin);
+            CHECK(m_entity->logicalBounds() == newBounds);
         }
 
-        TEST_CASE_METHOD(EntityNodeTest, "EntityNodeTest.originUpdateWithAddOrUpdateAttributes") {
+        TEST_CASE_METHOD(EntityNodeTest, "EntityNodeTest.originUpdateWithAddOrUpdateProperties") {
             const vm::vec3 newOrigin(10, 20, 30);
             const vm::bbox3 newBounds(newOrigin - (EntityNode::DefaultBounds.size() / 2.0),
                                       newOrigin + (EntityNode::DefaultBounds.size() / 2.0));
 
             m_entity->setEntity(Entity({{"origin", "10 20 30"}}));
-            EXPECT_EQ(newOrigin, m_entity->entity().origin());
-            EXPECT_EQ(newBounds, m_entity->logicalBounds());
+            CHECK(m_entity->entity().origin() == newOrigin);
+            CHECK(m_entity->logicalBounds() == newBounds);
         }
 
         // Same as above, but add the entity to a world
@@ -92,8 +106,8 @@ namespace TrenchBroom {
                                       newOrigin + (EntityNode::DefaultBounds.size() / 2.0));
 
             m_entity->setEntity(Entity({{"origin", "10 20 30"}}));
-            EXPECT_EQ(newOrigin, m_entity->entity().origin());
-            EXPECT_EQ(newBounds, m_entity->logicalBounds());
+            CHECK(m_entity->entity().origin() == newOrigin);
+            CHECK(m_entity->logicalBounds() == newBounds);
         }
     }
 }

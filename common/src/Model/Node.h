@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_Node
-#define TrenchBroom_Node
+#pragma once
 
 #include "FloatType.h"
 #include "Model/IssueType.h"
@@ -28,20 +27,29 @@
 #include <vecmath/forward.h>
 #include <vecmath/bbox.h>
 
+#include <iosfwd>
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace TrenchBroom {
     namespace Model {
-        class AttributableNode;
+        class EntityNodeBase;
         class ConstNodeVisitor;
         class Issue;
         class IssueGenerator;
         enum class LockState;
-        class NodeSnapshot;
         class NodeVisitor;
         class PickResult;
         enum class VisibilityState;
+
+        struct NodePath {
+            std::vector<std::size_t> indices;
+        };
+
+        bool operator==(const NodePath& lhs, const NodePath& rhs);
+        bool operator!=(const NodePath& lhs, const NodePath& rhs);
+        std::ostream& operator<<(std::ostream& str, const NodePath& path);
 
         class Node : public Taggable {
         private:
@@ -71,6 +79,23 @@ namespace TrenchBroom {
             ~Node() override;
         public: // getters
             const std::string& name() const;
+
+            /**
+             * Returns a path from the given ancestor to this node.
+             *
+             * If the given node is not an ancestor of this node, then the returned path is undefined.
+             */
+            NodePath pathFrom(const Node& fromAncestor) const;
+            
+            /**
+             * Resolves the given path starting at this node.
+             *
+             * Returns the descendant of this node to which the given path resolves or null if the given
+             * path is not valid from this node.
+             */
+            Node* resolvePath(const NodePath& path);
+            const Node* resolvePath(const NodePath& path) const;
+
             /**
              * Returns a box that encloses the "logical" part of this node and its children; these are the bounds that are
              * used in game (for entities, the bounds specified in the entity definition file), and used
@@ -88,7 +113,6 @@ namespace TrenchBroom {
         public: // cloning and snapshots
             Node* clone(const vm::bbox3& worldBounds) const;
             Node* cloneRecursively(const vm::bbox3& worldBounds) const;
-            NodeSnapshot* takeSnapshot();
         protected:
             void cloneAttributes(Node* node) const;
 
@@ -146,7 +170,9 @@ namespace TrenchBroom {
                 incDescendantCount(descendantCountDelta);
             }
 
-            void addChild(Node* child);
+            Node& addChild(Node* child);
+
+            std::vector<std::unique_ptr<Node>> replaceChildren(std::vector<std::unique_ptr<Node>> newChildren);
 
             template <typename I>
             void removeChildren(I cur, I end) {
@@ -196,7 +222,6 @@ namespace TrenchBroom {
             void descendantWasAdded(Node* node, size_t depth);
             void descendantWillBeRemoved(Node* node, size_t depth);
             void descendantWasRemoved(Node* oldParent, Node* node, size_t depth);
-            bool shouldPropagateDescendantEvents() const;
 
             void incDescendantCount(size_t delta);
             void decDescendantCount(size_t delta);
@@ -223,20 +248,19 @@ namespace TrenchBroom {
             class NotifyPhysicalBoundsChange {
             private:
                 Node* m_node;
-                vm::bbox3 m_oldBounds;
             public:
                 explicit NotifyPhysicalBoundsChange(Node* node);
                 ~NotifyPhysicalBoundsChange();
             };
-            void nodePhysicalBoundsDidChange(vm::bbox3 oldBounds);
+            void nodePhysicalBoundsDidChange();
         private:
             void childWillChange(Node* node);
             void childDidChange(Node* node);
             void descendantWillChange(Node* node);
             void descendantDidChange(Node* node);
 
-            void childPhysicalBoundsDidChange(Node* node, const vm::bbox3& oldBounds);
-            void descendantPhysicalBoundsDidChange(Node* node, const vm::bbox3& oldBounds, size_t depth);
+            void childPhysicalBoundsDidChange(Node* node);
+            void descendantPhysicalBoundsDidChange(Node* node, size_t depth);
         public: // selection
             bool selected() const;
             void select();
@@ -409,11 +433,11 @@ namespace TrenchBroom {
                 visitAll(m_children, lambda);
             }
         protected: // index management
-            void findAttributableNodesWithAttribute(const std::string& name, const std::string& value, std::vector<AttributableNode*>& result) const;
-            void findAttributableNodesWithNumberedAttribute(const std::string& prefix, const std::string& value, std::vector<AttributableNode*>& result) const;
+            void findEntityNodesWithProperty(const std::string& key, const std::string& value, std::vector<EntityNodeBase*>& result) const;
+            void findEntityNodesWithNumberedProperty(const std::string& prefix, const std::string& value, std::vector<EntityNodeBase*>& result) const;
 
-            void addToIndex(AttributableNode* attributable, const std::string& name, const std::string& value);
-            void removeFromIndex(AttributableNode* attributable, const std::string& name, const std::string& value);
+            void addToIndex(EntityNodeBase* node, const std::string& key, const std::string& value);
+            void removeFromIndex(EntityNodeBase* node, const std::string& key, const std::string& value);
         private: // subclassing interface
             virtual const std::string& doGetName() const = 0;
             virtual const vm::bbox3& doGetLogicalBounds() const = 0;
@@ -421,7 +445,6 @@ namespace TrenchBroom {
 
             virtual Node* doClone(const vm::bbox3& worldBounds) const = 0;
             virtual Node* doCloneRecursively(const vm::bbox3& worldBounds) const;
-            virtual NodeSnapshot* doTakeSnapshot();
 
             virtual bool doCanAddChild(const Node* child) const = 0;
             virtual bool doCanRemoveChild(const Node* child) const = 0;
@@ -438,7 +461,6 @@ namespace TrenchBroom {
             virtual void doDescendantWasAdded(Node* node, size_t depth);
             virtual void doDescendantWillBeRemoved(Node* node, size_t depth);
             virtual void doDescendantWasRemoved(Node* oldParent, Node* node, size_t depth);
-            virtual bool doShouldPropagateDescendantEvents() const;
 
             virtual void doParentWillChange();
             virtual void doParentDidChange();
@@ -464,13 +486,12 @@ namespace TrenchBroom {
             virtual void doAccept(NodeVisitor& visitor) = 0;
             virtual void doAccept(ConstNodeVisitor& visitor) const = 0;
 
-            virtual void doFindAttributableNodesWithAttribute(const std::string& name, const std::string& value, std::vector<AttributableNode*>& result) const;
-            virtual void doFindAttributableNodesWithNumberedAttribute(const std::string& prefix, const std::string& value, std::vector<AttributableNode*>& result) const;
+            virtual void doFindEntityNodesWithProperty(const std::string& key, const std::string& value, std::vector<EntityNodeBase*>& result) const;
+            virtual void doFindEntityNodesWithNumberedProperty(const std::string& prefix, const std::string& value, std::vector<EntityNodeBase*>& result) const;
 
-            virtual void doAddToIndex(AttributableNode* attributable, const std::string& name, const std::string& value);
-            virtual void doRemoveFromIndex(AttributableNode* attributable, const std::string& name, const std::string& value);
+            virtual void doAddToIndex(EntityNodeBase* node, const std::string& key, const std::string& value);
+            virtual void doRemoveFromIndex(EntityNodeBase* node, const std::string& key, const std::string& value);
         };
     }
 }
 
-#endif /* defined(TrenchBroom_Node) */

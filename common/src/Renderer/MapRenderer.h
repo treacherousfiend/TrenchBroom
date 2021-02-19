@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_MapRenderer
-#define TrenchBroom_MapRenderer
+#pragma once
 
 #include "Macros.h"
 
@@ -53,6 +52,7 @@ namespace TrenchBroom {
         class GroupRenderer;
         class BrushRenderer;
         class EntityLinkRenderer;
+        class GroupLinkRenderer;
         class RenderBatch;
         class RenderContext;
 
@@ -64,6 +64,7 @@ namespace TrenchBroom {
             std::unique_ptr<EntityRenderer> m_entityRenderer;
             std::unique_ptr<EntityLinkRenderer> m_entityLinkRenderer;
             std::unique_ptr<BrushRenderer> m_brushRenderer;
+            std::unique_ptr<GroupLinkRenderer> m_groupLinkRenderer;
         public:
             explicit MapRenderer(std::weak_ptr<View::MapDocument> document);
             ~MapRenderer();
@@ -86,6 +87,7 @@ namespace TrenchBroom {
             // void renderLockedOpaque(RenderContext& renderContext, RenderBatch& renderBatch);
             // void renderLockedTransparent(RenderContext& renderContext, RenderBatch& renderBatch);
             void renderEntityLinks(RenderContext& renderContext, RenderBatch& renderBatch);
+            void renderGroupLinks(RenderContext& renderContext, RenderBatch& renderBatch);
 
             void setupRenderers();
             // void setupDefaultRenderer(ObjectRenderer& renderer);
@@ -104,6 +106,7 @@ namespace TrenchBroom {
             void updateRenderers();
             void invalidateRenderers();
             void invalidateEntityLinkRenderer();
+            void invalidateGroupLinkRenderer();
             void reloadEntityModels();
         private: // notification
             void bindObservers();
@@ -143,4 +146,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_MapRenderer) */

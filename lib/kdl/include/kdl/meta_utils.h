@@ -15,8 +15,7 @@
  OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef KDL_META_UTILS_H
-#define KDL_META_UTILS_H
+#pragma once
 
 #include <type_traits>
 
@@ -87,6 +86,14 @@ namespace kdl {
         using remainder = meta_type_list<Remainder...>;
     };
 
+    template <typename Subset, typename Superset>
+    struct meta_is_subset {};
+
+    template <typename... Subset, typename... Superset>
+    struct meta_is_subset<meta_type_list<Subset...>, meta_type_list<Superset...>> {
+        static constexpr bool value = (meta_contains<Subset, Superset...>::value && ...);
+    };
+
     namespace detail {
         template <typename Result, typename Cur, typename Remainder>
         struct meta_remove_duplicates_impl {};
@@ -121,4 +128,3 @@ namespace kdl {
     };
 }
 
-#endif //KDL_META_UTILS_H

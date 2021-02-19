@@ -42,6 +42,7 @@
 #include <kdl/memory_utils.h>
 #include <kdl/overload.h>
 #include <kdl/result.h>
+#include <kdl/result_for_each.h>
 #include <kdl/vector_utils.h>
 
 #include <vecmath/vec.h>
@@ -356,14 +357,8 @@ namespace TrenchBroom {
                 return true;
             }
 
-            std::map<vm::polygon3, std::vector<Model::BrushNode*>> brushMap;
-            for (const auto& handle : dragFaces()) {
-                auto* brush = handle.node();
-                auto& face = handle.face();
-                brushMap[face.polygon()] = { brush };
-            }
-
-            if (document->moveFaces(brushMap, delta)) {
+            auto facesToMove = kdl::vec_transform(dragFaces(), [](const auto& handle) { return handle.face().polygon(); });
+            if (document->moveFaces(std::move(facesToMove), delta)) {
                 m_lastPoint = m_lastPoint + delta;
                 m_totalDelta = m_totalDelta + delta;
             }
@@ -406,45 +401,46 @@ namespace TrenchBroom {
             std::vector<FaceHandle> newDragHandles;
             std::map<Model::Node*, std::vector<Model::Node*>> newNodes;
 
-            for (const auto& dragFaceHandle : dragFaces()) {
+            return kdl::for_each_result(dragFaces(), [&](const auto& dragFaceHandle) {
                 auto* brushNode = dragFaceHandle.node();
 
                 const auto& oldBrush = brushNode->brush();
                 const auto dragFaceIndex = dragFaceHandle.faceIndex();
                 const auto newDragFaceNormal = oldBrush.face(dragFaceIndex).boundary().normal;
 
-                const bool success = oldBrush.moveBoundary(worldBounds, dragFaceIndex, delta, lockTextures)
-                    .and_then(
-                        [&](const Model::Brush& newBrush) {
-                            auto clipFace = oldBrush.face(dragFaceIndex);
-                            clipFace.invert();
-                            return newBrush.clip(worldBounds, std::move(clipFace));
-                        }
-                    ).and_then(
-                        [&](Model::Brush&& newBrush) {
-                            auto* newBrushNode = new Model::BrushNode(std::move(newBrush));
-                            newNodes[brushNode->parent()].push_back(newBrushNode);
-                            newDragHandles.emplace_back(newBrushNode, newDragFaceNormal);
-                            return kdl::void_result;
-                        }
-                    ).handle_errors(
-                        [&](const Model::BrushError e) {
-                            document->error() << "Could not extrude brush: " << e;
-                        }
-                    );
-
-                if (!success) {
+                auto newBrush = oldBrush;
+                return newBrush.moveBoundary(worldBounds, dragFaceIndex, delta, lockTextures)
+                    .and_then([&]() {
+                        auto clipFace = oldBrush.face(dragFaceIndex);
+                        clipFace.invert();
+                        return newBrush.clip(worldBounds, std::move(clipFace));
+                    }).and_then([&]() {
+                        auto* newBrushNode = new Model::BrushNode(std::move(newBrush));
+                        newNodes[brushNode->parent()].push_back(newBrushNode);
+                        newDragHandles.emplace_back(newBrushNode, newDragFaceNormal);
+                    });
+            }).and_then([&]() {
+                document->deselectAll();
+                const auto addedNodes = document->addNodes(newNodes);
+                document->select(addedNodes);
+                m_dragHandles = std::move(newDragHandles);
+            }).handle_errors(
+                [&](const Model::BrushError e) {
+                    document->error() << "Could not extrude brush: " << e;
                     kdl::map_clear_and_delete(newNodes);
-                    return false;
                 }
+            );
+        }
+
+        namespace {
+            struct ResizeError {
+                std::string msg;
+            };
+
+            std::ostream& operator<<(std::ostream& str, const ResizeError& e) {
+                str << e.msg;
+                return str;
             }
-
-            document->deselectAll();
-            const auto addedNodes = document->addNodes(newNodes);
-            document->select(addedNodes);
-            m_dragHandles = std::move(newDragHandles);
-
-            return true;
         }
 
         bool ResizeBrushesTool::splitBrushesInward(const vm::vec3& delta) {
@@ -461,65 +457,51 @@ namespace TrenchBroom {
                 }
             }
 
-            const std::vector<FaceHandle> oldDragHandles = m_dragHandles;
             std::vector<FaceHandle> newDragHandles;
             // This map is to handle the case when the brushes being
             // extruded have different parents (e.g. different brush entities),
             // so each newly created brush should be made a sibling of the brush it was cloned from.
             std::map<Model::Node*, std::vector<Model::Node*>> newNodes;
 
-            for (const auto& dragFaceHandle : dragFaces()) {
+            return kdl::for_each_result(dragFaces(), [&](const auto& dragFaceHandle) -> kdl::result<void, ResizeError, Model::BrushError> {
                 const auto& dragFace = dragFaceHandle.face();
                 auto* brushNode = dragFaceHandle.node();
 
-                const auto& brush = brushNode->brush();
-                const auto newDragFaceIndex = brush.findFace(dragFace.boundary());
+                auto newBrush = brushNode->brush();
+                const auto newDragFaceIndex = newBrush.findFace(dragFace.boundary());
                 if (!newDragFaceIndex) {
-                    kdl::map_clear_and_delete(newNodes);
-                    return false;
+                    return ResizeError{"Face not found"};
                 }
 
-                auto clipFace = brush.face(*newDragFaceIndex);
+                auto clipFace = newBrush.face(*newDragFaceIndex);
                 clipFace.invert();
                 
-                const bool success = clipFace.transform(vm::translation_matrix(delta), lockTextures)
-                    .and_then(
-                        [&]() {
-                            return brush.clip(worldBounds, std::move(clipFace));
-                        }
-                    ).and_then(
-                        [&](Model::Brush&& newBrush) {
-                            auto* newBrushNode = new Model::BrushNode(std::move(newBrush));
-                            newNodes[brushNode->parent()].push_back(newBrushNode);
-                            newDragHandles.emplace_back(newBrushNode, clipFace.boundary().normal);
-                            return kdl::void_result;
-                        }
-                    ).handle_errors(
-                        [&](const Model::BrushError e) {
-                            document->error() << "Could not extrude inwards: " << e;
-                        }
-                    );
-
-                if (!success) {
-                    kdl::map_clear_and_delete(newNodes);
-                    return false;
+                return clipFace.transform(vm::translation_matrix(delta), lockTextures)
+                    .and_then([&]() {
+                        return newBrush.clip(worldBounds, std::move(clipFace));
+                    }).and_then([&]() {
+                        auto* newBrushNode = new Model::BrushNode(std::move(newBrush));
+                        newNodes[brushNode->parent()].push_back(newBrushNode);
+                        newDragHandles.emplace_back(newBrushNode, clipFace.boundary().normal);
+                    });
+            }).and_then([&]() -> kdl::result<void, ResizeError> {
+                // Now that the newly split off brushes are ready to insert (but not selected),
+                // resize the original brushes, which are still selected at this point.
+                if (!document->resizeBrushes(dragFaceDescriptors(), delta)) {
+                    return ResizeError{"Resizing failed"};
                 }
-            }
 
-            // Now that the newly split off brushes are ready to insert (but not selected),
-            // resize the original brushes, which are still selected at this point.
-            if (!document->resizeBrushes(dragFaceDescriptors(), delta)) {
+                // Add the newly split off brushes and select them (keeping the original brushes selected).
+                const auto addedNodes = document->addNodes(newNodes);
+                document->select(addedNodes);
+
+                m_dragHandles = kdl::vec_concat(std::move(m_dragHandles), newDragHandles);
+                
+                return kdl::void_success;
+            }).handle_errors([&](const auto& e) {
+                document->error() << "Could not extrude inwards: " << e;
                 kdl::map_clear_and_delete(newNodes);
-                return false;
-            }
-
-            // Add the newly split off brushes and select them (keeping the original brushes selected).
-            const auto addedNodes = document->addNodes(newNodes);
-            document->select(addedNodes);
-
-            m_dragHandles = kdl::vec_concat(oldDragHandles, newDragHandles);
-
-            return true;
+            });
         }
 
         std::vector<vm::polygon3> ResizeBrushesTool::dragFaceDescriptors() const {

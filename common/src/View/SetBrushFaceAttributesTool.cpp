@@ -183,7 +183,7 @@ namespace TrenchBroom {
                 return true;
             }
 
-            if (!m_dragTargetFaceHandle && !m_dragTargetFaceHandle) {
+            if (!m_dragSourceFaceHandle && !m_dragTargetFaceHandle) {
                 // Start drag
                 m_dragSourceFaceHandle = m_dragInitialSelectedFaceHandle;
                 m_dragTargetFaceHandle = faceHandle;
@@ -236,7 +236,7 @@ namespace TrenchBroom {
                 auto snapshot = sourceFaceHandle.face().takeTexCoordSystemSnapshot();
                 document->setFaceAttributesExceptContentFlags(sourceFaceHandle.face().attributes());
                 if (snapshot != nullptr) {
-                    document->copyTexCoordSystemFromFace(*snapshot, sourceFaceHandle.face().attributes().takeSnapshot(), sourceFaceHandle.face().boundary(), style);
+                    document->copyTexCoordSystemFromFace(*snapshot, sourceFaceHandle.face().attributes(), sourceFaceHandle.face().boundary(), style);
                 }
             }
 

@@ -35,6 +35,7 @@
 #include "Renderer/EntityLinkRenderer.h"
 #include "Renderer/GroupRenderer.h"
 #include "Renderer/EntityRenderer.h"
+#include "Renderer/GroupLinkRenderer.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderUtils.h"
@@ -60,7 +61,8 @@ namespace TrenchBroom {
             kdl::mem_lock(document)->entityModelManager(),
             kdl::mem_lock(document)->editorContext())),
         m_entityLinkRenderer(std::make_unique<EntityLinkRenderer>(m_document)),
-        m_brushRenderer(std::make_unique<BrushRenderer>(kdl::mem_lock(document)->editorContext())) {
+        m_brushRenderer(std::make_unique<BrushRenderer>(kdl::mem_lock(document)->editorContext())),
+        m_groupLinkRenderer(std::make_unique<GroupLinkRenderer>(m_document)) {
             bindObservers();
             setupRenderers();
         }
@@ -75,6 +77,7 @@ namespace TrenchBroom {
             m_entityRenderer->clear();
             m_entityLinkRenderer->invalidate();
             m_brushRenderer->clear();
+            m_groupLinkRenderer->invalidate();
         }
 
         /**
@@ -113,6 +116,7 @@ namespace TrenchBroom {
             m_brushRenderer->renderTransparent(renderContext, renderBatch);
 
             renderEntityLinks(renderContext, renderBatch);
+            renderGroupLinks(renderContext, renderBatch);
         }
 
         void MapRenderer::commitPendingChanges() {
@@ -171,6 +175,10 @@ namespace TrenchBroom {
             m_entityLinkRenderer->render(renderContext, renderBatch);
         }
 
+        void MapRenderer::renderGroupLinks(RenderContext& renderContext, RenderBatch& renderBatch) {
+            m_groupLinkRenderer->render(renderContext, renderBatch);
+        }
+
         void MapRenderer::setupRenderers() {
             // setupDefaultRenderer(*m_defaultRenderer);
             // setupSelectionRenderer(*m_selectionRenderer);
@@ -178,62 +186,63 @@ namespace TrenchBroom {
             setupEntityLinkRenderer();
         }
 
-        // void MapRenderer::setupDefaultRenderer(ObjectRenderer& renderer) {
-        //     // renderer.setEntityOverlayTextColor(pref(Preferences::InfoOverlayTextColor));
-        //     // renderer.setGroupOverlayTextColor(pref(Preferences::GroupInfoOverlayTextColor));
-        //     // renderer.setOverlayBackgroundColor(pref(Preferences::InfoOverlayBackgroundColor));
-        //     // renderer.setTint(false);
-        //     // m_brushRenderer->setTransparencyAlpha(pref(Preferences::TransparentFaceAlpha));
-        //     //
-        //     // renderer.setGroupBoundsColor(pref(Preferences::DefaultGroupColor));
-        //     // renderer.setEntityBoundsColor(pref(Preferences::UndefinedEntityColor));
-        //     //
-        //     // m_brushRenderer->setEditorContext(&kdl::mem_lock(m_document)->editorContext());
-        //     // m_brushRenderer->setFaceColor(pref(Preferences::FaceColor));
-        //     // m_brushRenderer->setEdgeColor(pref(Preferences::EdgeColor));
-        // }
-        //
-        // void MapRenderer::setupSelectionRenderer(ObjectRenderer& renderer) {
-        //     // renderer.setEntityOverlayTextColor(pref(Preferences::SelectedInfoOverlayTextColor));
-        //     // renderer.setGroupOverlayTextColor(pref(Preferences::SelectedInfoOverlayTextColor));
-        //     // renderer.setOverlayBackgroundColor(pref(Preferences::SelectedInfoOverlayBackgroundColor));
-        //     // // renderer.setShowBrushEdges(true);
-        //     // renderer.setShowOccludedObjects(true);
-        //     // renderer.setOccludedEdgeColor(pref(Preferences::OccludedSelectedEdgeColor));
-        //     // renderer.setTint(true);
-        //     // renderer.setTintColor(pref(Preferences::SelectedFaceColor));
-        //     //
-        //     // renderer.setOverrideGroupBoundsColor(true);
-        //     // renderer.setGroupBoundsColor(pref(Preferences::SelectedEdgeColor));
-        //     //
-        //     // renderer.setOverrideEntityBoundsColor(true);
-        //     // renderer.setEntityBoundsColor(pref(Preferences::SelectedEdgeColor));
-        //     // renderer.setShowEntityAngles(true);
-        //     // renderer.setEntityAngleColor(pref(Preferences::AngleIndicatorColor));
-        //
-        //     // renderer.setBrushFaceColor(pref(Preferences::FaceColor));
-        //     // renderer.setBrushEdgeColor(pref(Preferences::SelectedEdgeColor));
-        // }
+#if 0
+        void MapRenderer::setupDefaultRenderer(ObjectRenderer& renderer) {
+            renderer.setEntityOverlayTextColor(pref(Preferences::InfoOverlayTextColor));
+            renderer.setGroupOverlayTextColor(pref(Preferences::GroupInfoOverlayTextColor));
+            renderer.setOverlayBackgroundColor(pref(Preferences::InfoOverlayBackgroundColor));
+            renderer.setTint(false);
+            renderer.setTransparencyAlpha(pref(Preferences::TransparentFaceAlpha));
 
-        // void MapRenderer::setupLockedRenderer(ObjectRenderer& renderer) {
-        //     renderer.setEntityOverlayTextColor(pref(Preferences::LockedInfoOverlayTextColor));
-        //     renderer.setGroupOverlayTextColor(pref(Preferences::LockedInfoOverlayTextColor));
-        //     renderer.setOverlayBackgroundColor(pref(Preferences::LockedInfoOverlayBackgroundColor));
-        //     renderer.setShowOccludedObjects(false);
-        //     renderer.setTint(true);
-        //     renderer.setTintColor(pref(Preferences::LockedFaceColor));
-        //     // renderer.setTransparencyAlpha(pref(Preferences::TransparentFaceAlpha));
-        //
-        //     renderer.setOverrideGroupBoundsColor(true);
-        //     renderer.setGroupBoundsColor(pref(Preferences::LockedEdgeColor));
-        //
-        //     renderer.setOverrideEntityBoundsColor(true);
-        //     renderer.setEntityBoundsColor(pref(Preferences::LockedEdgeColor));
-        //     renderer.setShowEntityAngles(false);
-        //
-        //     // renderer.setBrushFaceColor(pref(Preferences::FaceColor));
-        //     // renderer.setBrushEdgeColor(pref(Preferences::LockedEdgeColor));
-        // }
+            renderer.setGroupBoundsColor(pref(Preferences::DefaultGroupColor));
+            renderer.setEntityBoundsColor(pref(Preferences::UndefinedEntityColor));
+
+            renderer.setBrushFaceColor(pref(Preferences::FaceColor));
+            renderer.setBrushEdgeColor(pref(Preferences::EdgeColor));
+        }
+
+        void MapRenderer::setupSelectionRenderer(ObjectRenderer& renderer) {
+            renderer.setEntityOverlayTextColor(pref(Preferences::SelectedInfoOverlayTextColor));
+            renderer.setGroupOverlayTextColor(pref(Preferences::SelectedInfoOverlayTextColor));
+            renderer.setOverlayBackgroundColor(pref(Preferences::SelectedInfoOverlayBackgroundColor));
+            renderer.setShowBrushEdges(true);
+            renderer.setShowOccludedObjects(true);
+            renderer.setOccludedEdgeColor(Color(pref(Preferences::SelectedEdgeColor), pref(Preferences::OccludedSelectedEdgeAlpha)));
+            renderer.setTint(true);
+            renderer.setTintColor(pref(Preferences::SelectedFaceColor));
+
+            renderer.setOverrideGroupColors(true);
+            renderer.setGroupBoundsColor(pref(Preferences::SelectedEdgeColor));
+
+            renderer.setOverrideEntityBoundsColor(true);
+            renderer.setEntityBoundsColor(pref(Preferences::SelectedEdgeColor));
+            renderer.setShowEntityAngles(true);
+            renderer.setEntityAngleColor(pref(Preferences::AngleIndicatorColor));
+
+            renderer.setBrushFaceColor(pref(Preferences::FaceColor));
+            renderer.setBrushEdgeColor(pref(Preferences::SelectedEdgeColor));
+        }
+
+        void MapRenderer::setupLockedRenderer(ObjectRenderer& renderer) {
+            renderer.setEntityOverlayTextColor(pref(Preferences::LockedInfoOverlayTextColor));
+            renderer.setGroupOverlayTextColor(pref(Preferences::LockedInfoOverlayTextColor));
+            renderer.setOverlayBackgroundColor(pref(Preferences::LockedInfoOverlayBackgroundColor));
+            renderer.setShowOccludedObjects(false);
+            renderer.setTint(true);
+            renderer.setTintColor(pref(Preferences::LockedFaceColor));
+            renderer.setTransparencyAlpha(pref(Preferences::TransparentFaceAlpha));
+
+            renderer.setOverrideGroupColors(true);
+            renderer.setGroupBoundsColor(pref(Preferences::LockedEdgeColor));
+
+            renderer.setOverrideEntityBoundsColor(true);
+            renderer.setEntityBoundsColor(pref(Preferences::LockedEdgeColor));
+            renderer.setShowEntityAngles(false);
+
+            renderer.setBrushFaceColor(pref(Preferences::FaceColor));
+            renderer.setBrushEdgeColor(pref(Preferences::LockedEdgeColor));
+        }
+#endif
 
         void MapRenderer::setupEntityLinkRenderer() {
         }
@@ -278,6 +287,10 @@ namespace TrenchBroom {
 
         void MapRenderer::invalidateEntityLinkRenderer() {
             m_entityLinkRenderer->invalidate();
+        }
+
+        void MapRenderer::invalidateGroupLinkRenderer() {
+            m_groupLinkRenderer->invalidate();
         }
 
         void MapRenderer::reloadEntityModels() {
@@ -373,18 +386,21 @@ namespace TrenchBroom {
             debugLog(__func__, nodes);
             // FIXME: selective
             updateRenderers();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::nodesWereRemoved(const std::vector<Model::Node*>& nodes) {
             debugLog(__func__, nodes);
             // FIXME: selective
             updateRenderers();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::nodesDidChange(const std::vector<Model::Node*>& nodes) {
             debugLog(__func__, nodes);
             invalidateNodes(nodes);
             invalidateEntityLinkRenderer();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::nodeVisibilityDidChange(const std::vector<Model::Node*>& nodes) {
@@ -403,11 +419,13 @@ namespace TrenchBroom {
         void MapRenderer::groupWasOpened(Model::GroupNode* group) {
             debugLog(__func__, group);
             updateRenderers();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::groupWasClosed(Model::GroupNode* group) {
             debugLog(__func__, group);
             updateRenderers();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::brushFacesDidChange(const std::vector<Model::BrushFaceHandle>& faces) {
@@ -421,6 +439,7 @@ namespace TrenchBroom {
             invalidateNodes(selection.deselectedNodes());
             invalidateBrushFaces(selection.selectedBrushFaces());
             invalidateBrushFaces(selection.deselectedBrushFaces());
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::textureCollectionsWillChange() {
@@ -443,6 +462,7 @@ namespace TrenchBroom {
         void MapRenderer::editorContextDidChange() {
             invalidateRenderers();
             invalidateEntityLinkRenderer();
+            invalidateGroupLinkRenderer();
         }
 
         void MapRenderer::preferenceDidChange(const IO::Path& path) {
@@ -453,11 +473,13 @@ namespace TrenchBroom {
                 reloadEntityModels();
                 invalidateRenderers();
                 invalidateEntityLinkRenderer();
+                invalidateGroupLinkRenderer();
             }
 
             if (path.hasPrefix(IO::Path("Map view"), true)) {
                 invalidateRenderers();
                 invalidateEntityLinkRenderer();
+                invalidateGroupLinkRenderer();
             }
         }
 

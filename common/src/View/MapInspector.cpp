@@ -19,7 +19,7 @@
 
 #include "MapInspector.h"
 
-#include "Model/EntityAttributes.h"
+#include "Model/EntityProperties.h"
 #include "Model/WorldNode.h"
 #include "View/BorderLine.h"
 #include "View/ClickableLabel.h"
@@ -49,20 +49,30 @@ namespace TrenchBroom {
         // MapInspector
 
         MapInspector::MapInspector(std::weak_ptr<MapDocument> document, QWidget* parent) :
-        TabBookPage(parent) {
+        TabBookPage(parent),
+        m_mapPropertiesEditor(nullptr),
+        m_modEditor(nullptr) {
             createGui(document);
         }
 
+        MapInspector::~MapInspector() {
+            saveWindowState(m_mapPropertiesEditor);
+            saveWindowState(m_modEditor);
+        }
+
         void MapInspector::createGui(std::weak_ptr<MapDocument> document) {
+            m_mapPropertiesEditor = createMapPropertiesEditor(document);
+            m_modEditor = createModEditor(document);
+
             auto* sizer = new QVBoxLayout();
             sizer->setContentsMargins(0, 0, 0, 0);
             sizer->setSpacing(0);
 
             sizer->addWidget(createLayerEditor(document), 1);
             sizer->addWidget(new BorderLine(BorderLine::Direction::Horizontal), 0);
-            sizer->addWidget(createMapProperties(document), 0);
+            sizer->addWidget(m_mapPropertiesEditor, 0);
             sizer->addWidget(new BorderLine(BorderLine::Direction::Horizontal), 0);
-            sizer->addWidget(createModEditor(document), 0);
+            sizer->addWidget(m_modEditor, 0);
             setLayout(sizer);
         }
 
@@ -78,8 +88,10 @@ namespace TrenchBroom {
             return titledPanel;
         }
 
-        QWidget* MapInspector::createMapProperties(std::weak_ptr<MapDocument> document) {
-            CollapsibleTitledPanel* titledPanel = new CollapsibleTitledPanel(tr("Map Properties"), false);
+        CollapsibleTitledPanel* MapInspector::createMapPropertiesEditor(std::weak_ptr<MapDocument> document) {
+            CollapsibleTitledPanel* titledPanel = new CollapsibleTitledPanel(tr("Map Properties"));
+            titledPanel->setObjectName("MapInspector_MapPropertiesPanel");
+
             auto* editor = new MapPropertiesEditor(document);
 
             auto* sizer = new QVBoxLayout();
@@ -87,17 +99,23 @@ namespace TrenchBroom {
             sizer->addWidget(editor, 1);
             titledPanel->getPanel()->setLayout(sizer);
 
+            restoreWindowState(titledPanel);
+
             return titledPanel;
         }
 
-        QWidget* MapInspector::createModEditor(std::weak_ptr<MapDocument> document) {
-            CollapsibleTitledPanel* titledPanel = new CollapsibleTitledPanel(tr("Mods"), false);
+        CollapsibleTitledPanel* MapInspector::createModEditor(std::weak_ptr<MapDocument> document) {
+            CollapsibleTitledPanel* titledPanel = new CollapsibleTitledPanel(tr("Mods"));
+            titledPanel->setObjectName("MapInspector_ModsPanel");
+
             ModEditor* modEditor = new ModEditor(document);
 
             auto* sizer = new QVBoxLayout();
             sizer->setContentsMargins(0, 0, 0, 0);
             sizer->addWidget(modEditor, 1);
             titledPanel->getPanel()->setLayout(sizer);
+
+            restoreWindowState(titledPanel);
 
             return titledPanel;
         }
@@ -125,17 +143,13 @@ namespace TrenchBroom {
 
         static std::optional<vm::vec3> parseVec(const QString& qString) {
             const std::string string = qString.toStdString();
-            
-            if (vm::can_parse<double, 3u>(string)) {
-                return { vm::parse<double, 3u>(string) };
+            if (const auto vec = vm::parse<double, 3u>(string)) {
+                return *vec;
+            } else if (const auto val = vm::parse<double, 1u>(string)) {
+                return vm::vec3::fill(val->x());
+            } else {
+                return std::nullopt;
             }
-
-            if (vm::can_parse<double, 1u>(string)) {
-                const double fillValue = vm::parse<double, 1u>(string).x();
-                return { vm::vec3::fill(fillValue) };
-            }
-
-            return std::nullopt;
         }
 
         std::optional<vm::bbox3> MapPropertiesEditor::parseLineEdits() {
@@ -164,12 +178,20 @@ namespace TrenchBroom {
             m_softBoundsFromGameMaxLabel = new QLabel();
             auto* softBoundsFromGameLabel = new ClickableLabel(tr("Use game default"));
 
+            auto* minCaptionLabel = new QLabel(tr("Min:"));
+            auto* maxCaptionLabel = new QLabel(tr("Max:"));
+
+            makeInfo(minCaptionLabel);
+            makeInfo(maxCaptionLabel);
+            makeInfo(m_softBoundsFromGameMinLabel);
+            makeInfo(m_softBoundsFromGameMaxLabel);
+
             auto* softBoundsFromGameValueLayout = new QHBoxLayout();
             softBoundsFromGameValueLayout->setContentsMargins(0, 0, 0, 0);
             softBoundsFromGameValueLayout->setSpacing(LayoutConstants::MediumHMargin);
-            softBoundsFromGameValueLayout->addWidget(new QLabel(tr("Min:")));
+            softBoundsFromGameValueLayout->addWidget(minCaptionLabel);
             softBoundsFromGameValueLayout->addWidget(m_softBoundsFromGameMinLabel);
-            softBoundsFromGameValueLayout->addWidget(new QLabel(tr("Max:")));
+            softBoundsFromGameValueLayout->addWidget(maxCaptionLabel);
             softBoundsFromGameValueLayout->addWidget(m_softBoundsFromGameMaxLabel);
             softBoundsFromGameValueLayout->addStretch(1);
             

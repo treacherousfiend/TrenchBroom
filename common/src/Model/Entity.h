@@ -17,18 +17,19 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_Entity
-#define TrenchBroom_Entity
+#pragma once
 
 #include "FloatType.h"
 #include "Assets/AssetReference.h"
-#include "Model/EntityAttributes.h"
+#include "Model/EntityProperties.h"
 
 #include <vecmath/forward.h>
 #include <vecmath/mat.h>
 #include <vecmath/vec.h>
 
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace TrenchBroom {
     namespace Assets {
@@ -39,18 +40,23 @@ namespace TrenchBroom {
 
     namespace Model {
         /**
-         * An entity is essentially a collection of key / value pairs called attributes. Attributes can be set, renamed
+         * An entity is essentially a collection of key / value pairs called properties. Properties can be set, renamed
          * or removed and accessed via the corresponding member functions.
          *
-         * Some attributes are numbered, e.g. "target1", "target2", and so on. These attributes correspond to a multi valued 
-         * attribute whose name is the common prefix, e.g. "target", and whose value the union of the values of the corresponding
-         * numbered attributes. Note that any attribute counts as a numbered attribute even if it does not have a number as its
-         * suffix, so even an attribute named "target" is implicitly a numbered attribute.
+         * Some properties are numbered, e.g. "target1", "target2", and so on. These properties correspond to a multi valued
+         * property whose name is the common prefix, e.g. "target", and whose value the union of the values of the corresponding
+         * numbered properties. Note that any property counts as a numbered property even if it does not have a number as its
+         * suffix, so even an property named "target" is implicitly a numbered property.
+         *
+         * Entity properties can be protected, which protects them from being updated by a corresponding entity in a linked group.
+         * If an entity property is protected, any change to the same property from a corresponding entity in a linked group is
+         * ignored. This means that the entity value remains unchanged. Note that properties can be protected even if they don't
+         * exist; in this case, adding this property in a corresponding entity will not add the property here.
          *
          * Entities are geometric objects and as such can be transformed. Rotation is handled specially by a set of rules to make
          * it easier for users to apply rotation to entities. Point entities are rotated by the center of their bounding box and
-         * not their origin attribute, which denotes their position. Furthermore, when a point entity is rotated, certain rules
-         * are applied to update directional attributes such as "angle" or "mangle".
+         * not their origin property, which denotes their position. Furthermore, when a point entity is rotated, certain rules
+         * are applied to update directional properties such as "angle" or "mangle".
          *
          * Brush entities are not subject to any of these rules. They are rotated simply by applying rotation to their constituent
          * brushes.
@@ -59,7 +65,8 @@ namespace TrenchBroom {
         public:
             static const vm::bbox3 DefaultBounds;
         private:
-            std::vector<EntityAttribute> m_attributes;
+            std::vector<EntityProperty> m_properties;
+            std::vector<std::string> m_protectedProperties;
 
             /**
              * Specifies whether this entity has children or not. This does not necessarily correspond to the
@@ -71,19 +78,19 @@ namespace TrenchBroom {
             const Assets::EntityModelFrame* m_model;
 
             /**
-             * These attributes are cached for performance reasons.
+             * These properties are cached for performance reasons.
              */
-            struct CachedAttributes {
+            struct CachedProperties {
                 std::string classname;
                 vm::vec3 origin;
                 vm::mat4x4 rotation;
             };
 
-            mutable std::optional<CachedAttributes> m_cachedAttributes;
+            mutable std::optional<CachedProperties> m_cachedProperties;
         public:
             Entity();
-            explicit Entity(std::vector<EntityAttribute> attributes);
-            explicit Entity(std::initializer_list<EntityAttribute> attributes);
+            explicit Entity(std::vector<EntityProperty> properties);
+            explicit Entity(std::initializer_list<EntityProperty> properties);
 
             Entity(const Entity& other);
             Entity(Entity&& other);
@@ -93,8 +100,17 @@ namespace TrenchBroom {
 
             ~Entity();
 
-            const std::vector<EntityAttribute>& attributes() const;
-            void setAttributes(std::vector<EntityAttribute> attributes);
+            const std::vector<EntityProperty>& properties() const;
+            void setProperties(std::vector<EntityProperty> properties);
+
+            /**
+             * Sets the protected property keys of this entity.
+             *
+             * Protected entity properties are not propagated into linked groups and are not overwritten
+             * when a linked group updates this entity. See also GroupNode::updateLinkedGroups
+             */
+            const std::vector<std::string>& protectedProperties() const;
+            void setProtectedProperties(std::vector<std::string> protectedProperties);
 
             bool pointEntity() const;
             void setPointEntity(bool pointEntity);
@@ -110,19 +126,19 @@ namespace TrenchBroom {
             Assets::ModelSpecification modelSpecification() const;
             const vm::mat4x4 modelTransformation() const;
 
-            void addOrUpdateAttribute(std::string name, std::string value);
-            void renameAttribute(const std::string& oldName, std::string newName);
-            void removeAttribute(const std::string& name);
-            void removeNumberedAttribute(const std::string& prefix);
+            void addOrUpdateProperty(std::string key, std::string value, bool defaultToProtected = false);
+            void renameProperty(const std::string& oldKey, std::string newKey);
+            void removeProperty(const std::string& key);
+            void removeNumberedProperty(const std::string& prefix);
 
-            bool hasAttribute(const std::string& name) const;
-            bool hasAttribute(const std::string& name, const std::string& value) const;
+            bool hasProperty(const std::string& key) const;
+            bool hasProperty(const std::string& key, const std::string& value) const;
 
-            bool hasAttributeWithPrefix(const std::string& prefix, const std::string& value) const;
-            bool hasNumberedAttribute(const std::string& prefix, const std::string& value) const;
+            bool hasPropertyWithPrefix(const std::string& prefix, const std::string& value) const;
+            bool hasNumberedProperty(const std::string& prefix, const std::string& value) const;
 
-            const std::string* attribute(const std::string& name) const;
-            std::vector<std::string> attributeNames() const;
+            const std::string* property(const std::string& key) const;
+            std::vector<std::string> propertyKeys() const;
 
             const std::string& classname() const;
             void setClassname(const std::string& classname);
@@ -132,24 +148,22 @@ namespace TrenchBroom {
 
             const vm::mat4x4& rotation() const;
 
-            std::vector<EntityAttribute> attributeWithName(const std::string& name) const;
-            std::vector<EntityAttribute> attributesWithPrefix(const std::string& prefix) const;
-            std::vector<EntityAttribute> numberedAttributes(const std::string& prefix) const;
+            std::vector<EntityProperty> propertiesWithKey(const std::string& property) const;
+            std::vector<EntityProperty> propertiesWithPrefix(const std::string& property) const;
+            std::vector<EntityProperty> numberedProperties(const std::string& property) const;
 
             void transform(const vm::mat4x4& transformation);
         private:
             void applyRotation(const vm::mat4x4& rotation);
             
-            void invalidateCachedAttributes();
-            void validateCachedAttributes() const;
+            void invalidateCachedProperties();
+            void validateCachedProperties() const;
 
-            std::vector<EntityAttribute>::const_iterator findAttribute(const std::string& name) const;
-            std::vector<EntityAttribute>::iterator findAttribute(const std::string& name);
+            std::vector<EntityProperty>::const_iterator findProperty(const std::string& property) const;
+            std::vector<EntityProperty>::iterator findProperty(const std::string& property);
         };
 
         bool operator==(const Entity& lhs, const Entity& rhs);
         bool operator!=(const Entity& lhs, const Entity& rhs);
     }
  }
- 
- #endif

@@ -17,8 +17,7 @@
  along with TrenchBroom. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef TrenchBroom_EntityRotationPolicy
-#define TrenchBroom_EntityRotationPolicy
+#pragma once
 
 #include "FloatType.h"
 
@@ -33,7 +32,6 @@ namespace TrenchBroom {
 
     namespace Model {
         class Entity;
-        class EntityNode;
 
         class EntityRotationPolicy {
         private:
@@ -52,23 +50,16 @@ namespace TrenchBroom {
 
             struct RotationInfo {
                 const RotationType type;
-                const std::string attribute;
+                const std::string propertyKey;
                 const RotationUsage usage;
             };
         public:
-            static vm::mat4x4 getRotation(const EntityNode* entityNode);
-            static void applyRotation(EntityNode* entityNode, const vm::mat4x4& transformation);
-            static std::string getAttribute(const EntityNode* entityNode);
-
             static vm::mat4x4 getRotation(const Entity& entity);
             static void applyRotation(Entity& entity, const vm::mat4x4& transformation);
-            static std::string getAttribute(const Entity& entity);
+            static std::string getPropertyKey(const Entity& entity);
         private:
-            static RotationInfo rotationInfo(const EntityNode* entityNode);
-            static void setAngle(EntityNode* entityNode, const std::string& attribute, const vm::vec3& direction);
-
             static RotationInfo rotationInfo(const Entity& entity);
-            static void setAngle(Entity& entity, const std::string& attribute, const vm::vec3& direction);
+            static void setAngle(Entity& entity, const std::string& propertyKey, const vm::vec3& direction);
 
             static FloatType getAngle(vm::vec3 direction);
         public:
@@ -81,4 +72,3 @@ namespace TrenchBroom {
     }
 }
 
-#endif /* defined(TrenchBroom_EntityRotationPolicy) */
