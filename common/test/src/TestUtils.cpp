@@ -18,15 +18,22 @@
  */
 
 #include "TestUtils.h"
+#include "TestLogger.h"
 
 #include "Assets/Texture.h"
 #include "Ensure.h"
+#include "IO/DiskIO.h"
+#include "IO/GameConfigParser.h"
+#include "Model/BezierPatch.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushNode.h"
 #include "Model/EntityNode.h"
+#include "Model/GameImpl.h"
 #include "Model/GroupNode.h"
 #include "Model/ParaxialTexCoordSystem.h"
+#include "Model/PatchNode.h"
 #include "View/MapDocument.h"
+#include "View/MapDocumentCommandFacade.h"
 
 #include <kdl/result.h>
 #include <kdl/string_compare.h>
@@ -211,8 +218,27 @@ namespace TrenchBroom {
                     auto brush = brushNode->brush();
                     REQUIRE(brush.transform(worldBounds, transformation, false).is_success());
                     brushNode->setBrush(std::move(brush));
+                },
+                [&](PatchNode* patchNode) {
+                    auto patch = patchNode->patch();
+                    patch.transform(transformation);
+                    patchNode->setPatch(std::move(patch));
                 }
             ));
+        }
+
+        GameAndConfig loadGame(const std::string& gameName) {
+            TestLogger logger;
+            const auto configPath = IO::Disk::getCurrentWorkingDir() + IO::Path("fixture/games") + IO::Path(gameName) + IO::Path("GameConfig.cfg");
+            const auto gamePath = IO::Disk::getCurrentWorkingDir() + IO::Path("fixture/test/Model/Game") + IO::Path(gameName);
+            const auto configStr = IO::Disk::readTextFile(configPath);
+            auto configParser = IO::GameConfigParser(configStr, configPath);
+            auto config = std::make_unique<Model::GameConfig>(configParser.parse());
+            auto game = std::make_shared<Model::GameImpl>(*config, gamePath, logger);
+
+            // We would ideally just return game, but GameImpl captures a raw reference
+            // to the GameConfig.
+            return { std::move(game), std::move(config) };
         }
     }
 
@@ -227,6 +253,23 @@ namespace TrenchBroom {
 
         bool reparentNodes(MapDocument& document, Model::Node* newParent, std::vector<Model::Node*> nodes) {
             return document.reparentNodes({{newParent, std::move(nodes)}});
+        }
+
+        DocumentGameConfig loadMapDocument(const IO::Path& mapPath, const std::string& gameName, const Model::MapFormat mapFormat) {
+            auto [document, game, gameConfig] = newMapDocument(gameName, mapFormat);
+
+            document->loadDocument(mapFormat, document->worldBounds(), document->game(), IO::Disk::getCurrentWorkingDir() + mapPath);
+
+            return {std::move(document), std::move(game), std::move(gameConfig)};
+        }
+
+        DocumentGameConfig newMapDocument(const std::string& gameName, const Model::MapFormat mapFormat) {
+            auto [game, gameConfig] = Model::loadGame(gameName);
+
+            auto document = MapDocumentCommandFacade::newMapDocument();
+            document->newDocument(mapFormat, vm::bbox3(8192.0), game);
+
+            return {std::move(document), std::move(game), std::move(gameConfig)};
         }
     }
 
@@ -299,5 +342,14 @@ namespace TrenchBroom {
 
     GlobMatcher MatchesGlob(const std::string& glob) {
         return GlobMatcher(glob);
+    }
+
+    TEST_CASE("TestUtilsTest.testUnorderedApproxVecMatcher", "[TestUtilsTest]") {
+        using V = std::vector<vm::vec3>;
+        CHECK_THAT((V{{1, 1, 1}}), UnorderedApproxVecMatches(V{{1.01, 1.01, 1.01}}, 0.02));
+        CHECK_THAT((V{{0, 0, 0}, {1, 1, 1}}), UnorderedApproxVecMatches(V{{1.01, 1.01, 1.01}, {-0.01, -0.01, -0.01}}, 0.02));
+
+        CHECK_THAT((V{{1, 1, 1}}), !UnorderedApproxVecMatches(V{{1.01, 1.01, 1.01}, {1, 1, 1}}, 0.02)); // different number of elements
+        CHECK_THAT((V{{1, 1, 1}}), !UnorderedApproxVecMatches(V{{1.05, 1.01, 1.01}}, 0.02)); // too far
     }
 }

@@ -27,6 +27,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/IO/MdlParserTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/NodeWriterTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/ObjParserTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/IO/ObjSerializerTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/PathTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/PathSuffixNameStrategyTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/Quake3ShaderFileSystemTest.cpp"
@@ -43,6 +44,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/IO/WalTextureReaderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/WorldReaderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/IO/ZipFileSystemTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/BezierPatchTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/BrushBuilderTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/BrushFaceTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/BrushNodeTest.cpp"
@@ -56,7 +58,12 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/Model/GameTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/GroupTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/GroupNodeTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/IssueTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/LayerNodeTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/ModelUtilsTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/NodeCollectionTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/NodeTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/Model/PatchNodeTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/PolyhedronTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/PortalFileTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Model/TaggingTest.cpp"
@@ -67,6 +74,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/Renderer/AllocationTrackerTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Renderer/CameraTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/Renderer/VertexTest.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/View/AddNodesTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/AutosaverTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/ChangeBrushFaceAttributesTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/View/ClipToolControllerTest.cpp"
@@ -103,6 +111,7 @@ set(COMMON_TEST_SOURCE
         "${COMMON_TEST_SOURCE_DIR}/RunAllTests.cpp"
         "${COMMON_TEST_SOURCE_DIR}/StackWalkerTest.cpp"
         "${COMMON_TEST_SOURCE_DIR}/TestLogger.cpp"
+        "${COMMON_TEST_SOURCE_DIR}/TestPreferenceManager.cpp"
         "${COMMON_TEST_SOURCE_DIR}/TestUtils.cpp"
         "${COMMON_TEST_SOURCE_DIR}/TestUtils.h"
 )
@@ -115,6 +124,7 @@ set_property(SOURCE "${COMMON_TEST_SOURCE_DIR}/RunAllTests.cpp" PROPERTY SKIP_UN
 add_executable(common-test ${COMMON_TEST_SOURCE})
 target_include_directories(common-test PRIVATE ${COMMON_TEST_SOURCE_DIR})
 target_link_libraries(common-test PRIVATE common Catch2::Catch2)
+set_target_properties(common-test PROPERTIES AUTOMOC TRUE)
 
 set_compiler_config(common-test)
 

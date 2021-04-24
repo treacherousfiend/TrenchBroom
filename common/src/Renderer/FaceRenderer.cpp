@@ -125,24 +125,8 @@ namespace TrenchBroom {
         void FaceRenderer::prepareVerticesAndIndices(VboManager& vboManager) {
             m_vertexArray->prepare(vboManager);
 
-            for (const auto& pair : *m_indexArrayMap) {
-                const auto& brushIndexHolderPtr = pair.second;
+            for (const auto& [texture, brushIndexHolderPtr] : *m_indexArrayMap) {
                 brushIndexHolderPtr->prepare(vboManager);
-            }
-        }
-
-        vm::vec3f FaceRenderer::gridColorForTexture(const Assets::Texture* texture) {
-            if (texture == nullptr) {
-                return vm::vec3f::fill(1.0f);
-            }
-            if ((texture->averageColor().r() +
-                 texture->averageColor().g() +
-                 texture->averageColor().b()) / 3.0f > 0.50f) {
-                // bright texture grid color
-                return vm::vec3f::fill(0.0f);
-            } else {
-                // dark texture grid color
-                return vm::vec3f::fill(1.0f);
             }
         }
 

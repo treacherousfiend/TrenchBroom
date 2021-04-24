@@ -75,6 +75,7 @@ namespace TrenchBroom {
             static const std::string PatchId;
 
             QuakeMapTokenizer m_tokenizer;
+        protected:
             Model::MapFormat m_sourceMapFormat;
             Model::MapFormat m_targetMapFormat;
         public:
@@ -91,7 +92,7 @@ namespace TrenchBroom {
             ~StandardMapParser() override;
         protected:
             void parseEntities(ParserStatus& status);
-            void parseBrushes(ParserStatus& status);
+            void parseBrushesOrPatches(ParserStatus& status);
             void parseBrushFaces(ParserStatus& status);
 
             void reset();
@@ -132,8 +133,6 @@ namespace TrenchBroom {
 
             float parseFloat();
             int parseInteger();
-
-            void parseExtraAttributes(ExtraAttributes& extraAttributes, ParserStatus& status);
         private: // implement Parser interface
             TokenNameMap tokenNames() const override;
         };

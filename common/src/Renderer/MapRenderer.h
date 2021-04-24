@@ -53,6 +53,7 @@ namespace TrenchBroom {
         class BrushRenderer;
         class EntityLinkRenderer;
         class GroupLinkRenderer;
+        class PatchRenderer;
         class RenderBatch;
         class RenderContext;
 
@@ -64,6 +65,7 @@ namespace TrenchBroom {
             std::unique_ptr<EntityRenderer> m_entityRenderer;
             std::unique_ptr<EntityLinkRenderer> m_entityLinkRenderer;
             std::unique_ptr<BrushRenderer> m_brushRenderer;
+            std::unique_ptr<PatchRenderer> m_patchRenderer;
             std::unique_ptr<GroupLinkRenderer> m_groupLinkRenderer;
         public:
             explicit MapRenderer(std::weak_ptr<View::MapDocument> document);

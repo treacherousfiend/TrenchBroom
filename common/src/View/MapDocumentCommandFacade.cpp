@@ -37,6 +37,7 @@
 #include "Model/Issue.h"
 #include "Model/LayerNode.h"
 #include "Model/ModelUtils.h"
+#include "Model/PatchNode.h"
 #include "Model/WorldNode.h"
 #include "View/CommandProcessor.h"
 #include "View/UndoableCommand.h"
@@ -231,9 +232,7 @@ namespace TrenchBroom {
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
 
             std::vector<Model::Node*> addedNodes;
-            for (const auto& entry : nodes) {
-                Model::Node* parent = entry.first;
-                const std::vector<Model::Node*>& children = entry.second;
+            for (const auto& [parent, children] : nodes) {
                 parent->addChildren(children);
                 addedNodes = kdl::vec_concat(std::move(addedNodes), children);
             }
@@ -253,9 +252,7 @@ namespace TrenchBroom {
             const std::vector<Model::Node*> allChildren = collectChildren(nodes);
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyChildren(nodesWillBeRemovedNotifier, nodesWereRemovedNotifier, allChildren);
 
-            for (const auto& entry : nodes) {
-                Model::Node* parent = entry.first;
-                const std::vector<Model::Node*>& children = entry.second;
+            for (const auto& [parent, children] : nodes) {
                 unsetEntityModels(children);
                 unsetEntityDefinitions(children);
                 unsetTextures(children);
@@ -266,6 +263,10 @@ namespace TrenchBroom {
         }
 
         std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>> MapDocumentCommandFacade::performReplaceChildren(std::vector<std::pair<Model::Node*, std::vector<std::unique_ptr<Model::Node>>>> nodes) {
+            if (nodes.empty()) {
+                return {};
+            }
+
             const std::vector<Model::Node*> parents = collectParents(nodes);
             Notifier<const std::vector<Model::Node*>&>::NotifyBeforeAndAfter notifyParents(nodesWillChangeNotifier, nodesDidChangeNotifier, parents);
 
@@ -276,10 +277,7 @@ namespace TrenchBroom {
             auto allOldChildren = std::vector<Model::Node*>{};
             auto allNewChildren = std::vector<Model::Node*>{};
 
-            for (auto& entry : nodes) {
-                Model::Node* parent = entry.first;
-
-                auto& newChildren = entry.second;
+            for (auto& [parent, newChildren] : nodes) {
                 allNewChildren = kdl::vec_concat(std::move(allNewChildren), kdl::vec_transform(newChildren, [](auto& child) { return child.get(); }));
                 
                 auto oldChildren = parent->replaceChildren(std::move(newChildren));
@@ -351,7 +349,8 @@ namespace TrenchBroom {
                     [&](Model::LayerNode* layerNode)   -> Model::NodeContents { return Model::NodeContents(layerNode->setLayer(std::get<Model::Layer>(std::move(contents)))); },
                     [&](Model::GroupNode* groupNode)   -> Model::NodeContents { return Model::NodeContents(groupNode->setGroup(std::get<Model::Group>(std::move(contents)))); },
                     [&](Model::EntityNode* entityNode) -> Model::NodeContents { return Model::NodeContents(entityNode->setEntity(std::get<Model::Entity>(std::move(contents)))); },
-                    [&](Model::BrushNode* brushNode)   -> Model::NodeContents { return Model::NodeContents(brushNode->setBrush(std::get<Model::Brush>(std::move(contents)))); }
+                    [&](Model::BrushNode* brushNode)   -> Model::NodeContents { return Model::NodeContents(brushNode->setBrush(std::get<Model::Brush>(std::move(contents)))); },
+                    [&](Model::PatchNode* patchNode)   -> Model::NodeContents { return Model::NodeContents(patchNode->setPatch(std::get<Model::BezierPatch>(std::move(contents)))); }
                 ));
             }
 
@@ -406,9 +405,7 @@ namespace TrenchBroom {
             std::vector<Model::Node*> changedNodes;
             changedNodes.reserve(nodes.size());
 
-            for (const auto& entry : nodes) {
-                Model::Node* node = entry.first;
-                const Model::VisibilityState state = entry.second;
+            for (const auto& [node, state] : nodes) {
                 if (node->setVisibilityState(state))
                     changedNodes.push_back(node);
             }
@@ -438,9 +435,7 @@ namespace TrenchBroom {
             std::vector<Model::Node*> changedNodes;
             changedNodes.reserve(nodes.size());
 
-            for (const auto& entry : nodes) {
-                Model::Node* node = entry.first;
-                const Model::LockState state = entry.second;
+            for (const auto& [node, state] : nodes) {
                 if (node->setLockState(state))
                     changedNodes.push_back(node);
             }

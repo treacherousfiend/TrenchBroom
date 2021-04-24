@@ -227,6 +227,55 @@ namespace TrenchBroom {
             }
         }
 
+        static const BrushFace* findBestMatchingFace(const BrushFace& face, const std::vector<const BrushFace*>& candidates) {
+            if (candidates.empty()) {
+                return nullptr;
+            }
+
+            // First, look for coplanar candidates
+            const auto coplanarCandidates = kdl::vec_filter(candidates, [&](const BrushFace* candidate) {
+                return candidate->coplanarWith(face.boundary());
+            });;
+
+            if (!coplanarCandidates.empty()) {
+                // Return the largest coplanar face
+                return *std::max_element(std::begin(coplanarCandidates), std::end(coplanarCandidates),
+                    [](const BrushFace* lhs, const BrushFace* rhs){
+                        return lhs->area() < rhs->area();
+                    });
+            }
+
+            // No coplanar faces. Return the one with the smallest "face center off reference plane" distance.
+            const auto faceCenterOffPlaneDist = [&](const BrushFace* candidate) -> FloatType {
+                return vm::abs(face.boundary().point_distance(candidate->center()));
+            };
+
+            return *std::min_element(std::begin(candidates), std::end(candidates),
+                [&](const BrushFace* lhs, const BrushFace* rhs){
+                    return faceCenterOffPlaneDist(lhs) < faceCenterOffPlaneDist(rhs);
+                });
+        }
+
+        void Brush::cloneFaceAttributesFrom(const std::vector<const Brush*>& brushes) {
+            auto candidates = std::vector<const BrushFace*>{};
+            for (const auto* candidateBrush : brushes) {
+                for (const auto& candidateFace : candidateBrush->faces()) {
+                    candidates.push_back(&candidateFace);
+                }
+            }
+
+            for (auto& face : m_faces) {
+                if (const auto* bestMatch = findBestMatchingFace(face, candidates)) {
+                    face.setAttributes(bestMatch->attributes());
+
+                    auto snapshot = bestMatch->takeTexCoordSystemSnapshot();
+                    if (snapshot != nullptr) {
+                        face.copyTexCoordSystemFromFace(*snapshot, bestMatch->attributes(), face.boundary(), WrapStyle::Projection);
+                    }
+                }
+            }
+        }
+
         void Brush::cloneInvertedFaceAttributesFrom(const Brush& brush) {
             for (auto& destination : m_faces) {
                 if (const auto sourceIndex = brush.findFace(destination.boundary().flip())) {
@@ -250,24 +299,9 @@ namespace TrenchBroom {
         kdl::result<void, BrushError> Brush::moveBoundary(const vm::bbox3& worldBounds, const size_t faceIndex, const vm::vec3& delta, const bool lockTexture) {
             assert(faceIndex < faceCount());
 
-            const auto originalFaceCount = faceCount();
             return m_faces[faceIndex].transform(vm::translation_matrix(delta), lockTexture)
                 .and_then([&]() {
                     return updateGeometryFromFaces(worldBounds);
-                }).and_then([&]() -> kdl::result<void, BrushError> {
-                    if (faceCount() == originalFaceCount) {
-// GCC 8 incorrectly complains about an unitialized variable use here
-#if defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER) && __GNUC__ == 8
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-                        return kdl::void_success;
-#if defined(__GNUC__) && !defined(__clang__) && !defined(_MSC_VER) && __GNUC__ == 8
-#pragma GCC diagnostic pop
-#endif
-                    } else {
-                        return BrushError::InvalidBrush;
-                    }
                 });
         }
 
@@ -831,7 +865,7 @@ namespace TrenchBroom {
             return updateGeometryFromFaces(worldBounds);
         }
 
-        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const std::vector<const Brush*>& subtrahends) const {
+        std::vector<kdl::result<Brush, BrushError>> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const std::vector<const Brush*>& subtrahends) const {
             auto result = std::vector<BrushGeometry>{*m_geometry};
 
             for (const auto* subtrahend : subtrahends) {
@@ -845,12 +879,12 @@ namespace TrenchBroom {
                 result = std::move(nextResults);
             }
 
-            return kdl::for_each_result(result, [&](const auto& geometry) {
+            return kdl::vec_transform(result, [&](const auto& geometry) {
                 return createBrush(mapFormat, worldBounds, defaultTextureName, geometry, subtrahends);
             });
         }
 
-        kdl::result<std::vector<Brush>, BrushError> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const Brush& subtrahend) const {
+        std::vector<kdl::result<Brush, BrushError>> Brush::subtract(const MapFormat mapFormat, const vm::bbox3& worldBounds, const std::string& defaultTextureName, const Brush& subtrahend) const {
             return subtract(mapFormat, worldBounds, defaultTextureName, std::vector<const Brush*>{&subtrahend});
         }
 

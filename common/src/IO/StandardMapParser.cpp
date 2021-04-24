@@ -157,7 +157,7 @@ namespace TrenchBroom {
             }
         }
 
-        void StandardMapParser::parseBrushes(ParserStatus& status) {
+        void StandardMapParser::parseBrushesOrPatches(ParserStatus& status) {
             auto token = m_tokenizer.peekToken();
             while (token.type() != QuakeMapToken::Eof) {
                 expect(QuakeMapToken::OBrace, token);
@@ -193,7 +193,6 @@ namespace TrenchBroom {
             auto properties = std::vector<Model::EntityProperty>();
             auto propertyKeys = PropertyKeys();
 
-            auto extraAttributes = ExtraAttributes();
             const auto startLine = token.line();
 
             token = m_tokenizer.peekToken();
@@ -201,14 +200,13 @@ namespace TrenchBroom {
                 switch (token.type()) {
                     case QuakeMapToken::Comment:
                         m_tokenizer.nextToken();
-                        parseExtraAttributes(extraAttributes, status);
                         break;
                     case QuakeMapToken::String:
                         parseEntityProperty(properties, propertyKeys, status);
                         break;
                     case QuakeMapToken::OBrace:
                         if (!beginEntityCalled) {
-                            onBeginEntity(startLine, properties, extraAttributes, status);
+                            onBeginEntity(startLine, std::move(properties), status);
                             beginEntityCalled = true;
                         }
                         parseBrushOrBrushPrimitiveOrPatch(status);
@@ -216,7 +214,7 @@ namespace TrenchBroom {
                     case QuakeMapToken::CBrace:
                         m_tokenizer.nextToken();
                         if (!beginEntityCalled) {
-                            onBeginEntity(startLine, properties, extraAttributes, status);
+                            onBeginEntity(startLine, properties, status);
                         }
                         onEndEntity(startLine, token.line() - startLine, status);
                         return;
@@ -300,14 +298,12 @@ namespace TrenchBroom {
 
         void StandardMapParser::parseBrush(ParserStatus& status, const size_t startLine, const bool primitive) {
             auto beginBrushCalled = false;
-            auto extraAttributes = ExtraAttributes();
 
             auto token = m_tokenizer.peekToken();
             while (!token.hasType(QuakeMapToken::Eof)) {
                 switch (token.type()) {
                     case QuakeMapToken::Comment:
                         m_tokenizer.nextToken();
-                        parseExtraAttributes(extraAttributes, status);
                         break;
                     case QuakeMapToken::OParenthesis:
                         // TODO 2427: handle brush primitives
@@ -323,7 +319,7 @@ namespace TrenchBroom {
                             if (!beginBrushCalled) {
                                 onBeginBrush(startLine, status);
                             }
-                            onEndBrush(startLine, token.line() - startLine, extraAttributes, status);
+                            onEndBrush(startLine, token.line() - startLine, status);
                         } else {
                             status.warn(startLine, "Skipping brush primitive: currently not supported");
                         }
@@ -537,42 +533,60 @@ namespace TrenchBroom {
             expect(PatchId, token);
             expect(QuakeMapToken::OBrace, m_tokenizer.nextToken());
 
-            parseTextureName(status);
+            auto textureName = parseTextureName(status);
             expect(QuakeMapToken::OParenthesis, m_tokenizer.nextToken());
 
+            /*
+            Quake 3 parses the patches a bit differently. In the GtkRadiant source, the first number
+            is the column count and the second is the row count, and the points are transposed during
+            parsing. Later, when the points are interpreted, radiant puts the origin (the first control
+            point) in the bottom left, but we put it in the top left. For the grid computed from the
+            this makes no difference as long as the normals are computed correctly.
+
+            I chose to interpret the data this way because it seems more intuitive and easier to reason
+            about.
+            */
+
             token = expect(QuakeMapToken::Integer, m_tokenizer.nextToken());
-            auto h = token.toInteger<int>();
-            if (h < 0) {
-                status.warn(token.line(), token.column(), "Negative patch height, assuming 0");
-                h = 0;
+            int rowCountInt = token.toInteger<int>();
+            if (rowCountInt < 3 || rowCountInt % 2 != 1) {
+                status.warn(token.line(), token.column(), "Invalid patch height, assuming 3");
+                rowCountInt = 3;
             }
 
             token = expect(QuakeMapToken::Integer, m_tokenizer.nextToken());
-            auto w = token.toInteger<int>();
-            if (w < 0) {
-                status.warn(token.line(), token.column(), "Negative patch width, assuming 0");
-                w = 0;
+            int columnCountInt = token.toInteger<int>();
+            if (columnCountInt < 3 || columnCountInt % 2 != 1) {
+                status.warn(token.line(), token.column(), "Invalid patch width, assuming 3");
+                columnCountInt = 3;
             }
+
+            size_t rowCount = static_cast<size_t>(rowCountInt);
+            size_t columnCount = static_cast<size_t>(columnCountInt);
 
             expect(QuakeMapToken::Integer, m_tokenizer.nextToken());
             expect(QuakeMapToken::Integer, m_tokenizer.nextToken());
             expect(QuakeMapToken::Integer, m_tokenizer.nextToken());
             expect(QuakeMapToken::CParenthesis, m_tokenizer.nextToken());
 
+            auto controlPoints = std::vector<vm::vec<FloatType, 5>>{};
+            controlPoints.reserve(columnCount * rowCount);
+
             expect(QuakeMapToken::OParenthesis, m_tokenizer.nextToken());
-            for (size_t i = 0; i < size_t(h); ++i) {
+            for (size_t i = 0; i < size_t(rowCount); ++i) {
                 expect(QuakeMapToken::OParenthesis, m_tokenizer.nextToken());
-                for (size_t j = 0; j < size_t(w); ++j) {
-                    parseFloatVector<5>(QuakeMapToken::OParenthesis, QuakeMapToken::CParenthesis);
+                for (size_t j = 0; j < size_t(columnCount); ++j) {
+                    const auto controlPoint = parseFloatVector<5>(QuakeMapToken::OParenthesis, QuakeMapToken::CParenthesis);
+                    controlPoints.push_back(controlPoint);
                 }
                 expect(QuakeMapToken::CParenthesis, m_tokenizer.nextToken());
             }
             expect(QuakeMapToken::CParenthesis, m_tokenizer.nextToken());
 
-            expect(QuakeMapToken::CBrace, m_tokenizer.nextToken());
+            token = expect(QuakeMapToken::CBrace, m_tokenizer.nextToken());
+            const size_t lineCount = token.line() - startLine;
 
-            // TODO 2428: create the actual patch
-            status.warn(startLine, "Skipping patch: currently not supported");
+            onPatch(startLine, lineCount, m_targetMapFormat, rowCount, columnCount, std::move(controlPoints), std::move(textureName), status);
         }
 
         std::tuple<vm::vec3, vm::vec3, vm::vec3> StandardMapParser::parseFacePoints(ParserStatus& /* status */) {
@@ -612,23 +626,6 @@ namespace TrenchBroom {
 
         int StandardMapParser::parseInteger() {
             return expect(QuakeMapToken::Integer, m_tokenizer.nextToken()).toInteger<int>();
-        }
-
-        void StandardMapParser::parseExtraAttributes(ExtraAttributes& attributes, ParserStatus& /* status */) {
-            // do not skip EOLs for the duration of this function call
-            m_tokenizer.setSkipEol(false);
-            const kdl::invoke_later parseEof([this]() { m_tokenizer.setSkipEol(true); });
-
-            auto token = m_tokenizer.nextToken();
-            expect(QuakeMapToken::String | QuakeMapToken::Eol | QuakeMapToken::Eof, token);
-            while (token.type() != QuakeMapToken::Eol && token.type() != QuakeMapToken::Eof) {
-                const auto name = token.data();
-                expect(QuakeMapToken::String | QuakeMapToken::Integer, token = m_tokenizer.nextToken());
-                const auto value = token.data();
-                const auto type = token.type() == QuakeMapToken::String ? ExtraAttribute::Type_String : ExtraAttribute::Type_Integer;
-                attributes.insert(std::make_pair(name, ExtraAttribute(type, name, value, token.line(), token.column())));
-                expect(QuakeMapToken::String | QuakeMapToken::Eol | QuakeMapToken::Eof, token = m_tokenizer.nextToken());
-            }
         }
 
         StandardMapParser::TokenNameMap StandardMapParser::tokenNames() const {

@@ -30,12 +30,14 @@
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
 #include "Model/Node.h"
+#include "Model/PatchNode.h"
 #include "Model/WorldNode.h"
 #include "Renderer/BrushRenderer.h"
 #include "Renderer/EntityLinkRenderer.h"
 #include "Renderer/GroupRenderer.h"
 #include "Renderer/EntityRenderer.h"
 #include "Renderer/GroupLinkRenderer.h"
+#include "Renderer/PatchRenderer.h"
 #include "Renderer/RenderBatch.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderUtils.h"
@@ -62,6 +64,7 @@ namespace TrenchBroom {
             kdl::mem_lock(document)->editorContext())),
         m_entityLinkRenderer(std::make_unique<EntityLinkRenderer>(m_document)),
         m_brushRenderer(std::make_unique<BrushRenderer>(kdl::mem_lock(document)->editorContext())),
+        m_patchRenderer(std::make_unique<PatchRenderer>()),
         m_groupLinkRenderer(std::make_unique<GroupLinkRenderer>(m_document)) {
             bindObservers();
             setupRenderers();
@@ -77,6 +80,7 @@ namespace TrenchBroom {
             m_entityRenderer->clear();
             m_entityLinkRenderer->invalidate();
             m_brushRenderer->clear();
+            m_patchRenderer->clear();
             m_groupLinkRenderer->invalidate();
         }
 
@@ -109,6 +113,7 @@ namespace TrenchBroom {
             m_brushRenderer->renderOpaque(renderContext, renderBatch);
             m_entityRenderer->render(renderContext, renderBatch);
             m_groupRenderer->render(renderContext, renderBatch);
+            m_patchRenderer->render(renderContext, renderBatch);
 
             // renderDefaultTransparent(renderContext, renderBatch);
             // renderLockedTransparent(renderContext, renderBatch);
@@ -254,6 +259,7 @@ namespace TrenchBroom {
             std::vector<Model::EntityNode*> entities;
             std::vector<Model::GroupNode*> groups;
             std::vector<Model::BrushNode*> brushes;
+            std::vector<Model::PatchNode*> patches;
 
             world->accept(kdl::overload(
                 [&](auto&& thisLambda, Model::WorldNode* world) { world->visitChildren(thisLambda); },
@@ -268,12 +274,27 @@ namespace TrenchBroom {
                 },
                 [&](Model::BrushNode* brush) {
                     brushes.push_back(brush);
+                },
+                [&](Model::PatchNode* patchNode) {
+                    patches.push_back(patchNode);
+#if 0
+                    // FIXME: re-add this logic in the patch renderer
+                    if (patchNode->locked()) {
+                        if (renderLocked) lockedNodes.patches.push_back(patchNode);
+                    } else if (selected(patchNode)) {
+                        if (renderSelection) selectedNodes.patches.push_back(patchNode);
+                    }
+                    if (!patchNode->selected() && !patchNode->parentSelected() && !patchNode->locked()) {
+                        if (renderDefault) defaultNodes.patches.push_back(patchNode);
+                    }
+#endif
                 }
             ));
 
             m_entityRenderer->setEntities(entities);
             m_groupRenderer->setGroups(groups);
             m_brushRenderer->setBrushes(brushes);
+            m_patchRenderer->setPatches(patches);
 
             invalidateEntityLinkRenderer();
         }
@@ -283,6 +304,7 @@ namespace TrenchBroom {
             m_entityRenderer->invalidate();
             m_entityLinkRenderer->invalidate();
             m_brushRenderer->invalidate();
+            m_patchRenderer->invalidate();
         }
 
         void MapRenderer::invalidateEntityLinkRenderer() {
@@ -503,6 +525,10 @@ namespace TrenchBroom {
                 },
                 [&](auto&&, Model::BrushNode* brush) {
                     m_brushRenderer->invalidateBrush(brush);
+                    ++invalidatedNodes;
+                },
+                [&](auto&&, Model::PatchNode* patchNode) {
+                    m_patchRenderer->invalidate();
                     ++invalidatedNodes;
                 }
             ));

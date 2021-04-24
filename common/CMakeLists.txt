@@ -90,6 +90,7 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/IO/WalTextureReader.cpp
         ${COMMON_SOURCE_DIR}/IO/WorldReader.cpp
         ${COMMON_SOURCE_DIR}/IO/ZipFileSystem.cpp
+        ${COMMON_SOURCE_DIR}/Model/BezierPatch.cpp
         ${COMMON_SOURCE_DIR}/Model/Brush.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushBuilder.cpp
         ${COMMON_SOURCE_DIR}/Model/BrushError.cpp
@@ -157,6 +158,7 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/Model/Object.cpp
         ${COMMON_SOURCE_DIR}/Model/ParallelTexCoordSystem.cpp
         ${COMMON_SOURCE_DIR}/Model/ParaxialTexCoordSystem.cpp
+        ${COMMON_SOURCE_DIR}/Model/PatchNode.cpp
         ${COMMON_SOURCE_DIR}/Model/PickResult.cpp
         ${COMMON_SOURCE_DIR}/Model/PointEntityWithBrushesIssueGenerator.cpp
         ${COMMON_SOURCE_DIR}/Model/PointFile.cpp
@@ -205,11 +207,15 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/Renderer/GridRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/GroupLinkRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/GroupRenderer.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArray.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArrayMap.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArrayMapBuilder.cpp
         ${COMMON_SOURCE_DIR}/Renderer/IndexRangeMap.cpp
         ${COMMON_SOURCE_DIR}/Renderer/IndexRangeRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/LinkRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/MapRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/OrthographicCamera.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/PatchRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/PerspectiveCamera.cpp
         ${COMMON_SOURCE_DIR}/Renderer/PointGuideRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/PointHandleRenderer.cpp
@@ -230,6 +236,9 @@ set(COMMON_SOURCE
         ${COMMON_SOURCE_DIR}/Renderer/SpikeGuideRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/TextAnchor.cpp
         ${COMMON_SOURCE_DIR}/Renderer/TextRenderer.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayMap.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayMapBuilder.cpp
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexRangeMap.cpp
         ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexRangeRenderer.cpp
         ${COMMON_SOURCE_DIR}/Renderer/TextureFont.cpp
@@ -555,6 +564,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/IO/WalTextureReader.h
         ${COMMON_SOURCE_DIR}/IO/WorldReader.h
         ${COMMON_SOURCE_DIR}/IO/ZipFileSystem.h
+        ${COMMON_SOURCE_DIR}/Model/BezierPatch.h
         ${COMMON_SOURCE_DIR}/Model/Brush.h
         ${COMMON_SOURCE_DIR}/Model/BrushBuilder.h
         ${COMMON_SOURCE_DIR}/Model/BrushError.h
@@ -609,6 +619,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Model/LayerNode.h
         ${COMMON_SOURCE_DIR}/Model/LinkSourceIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/LinkTargetIssueGenerator.h
+        ${COMMON_SOURCE_DIR}/Model/LockState.cpp
         ${COMMON_SOURCE_DIR}/Model/LockState.h
         ${COMMON_SOURCE_DIR}/Model/LongPropertyKeyIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/LongPropertyValueIssueGenerator.h
@@ -627,6 +638,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Model/Object.h
         ${COMMON_SOURCE_DIR}/Model/ParallelTexCoordSystem.h
         ${COMMON_SOURCE_DIR}/Model/ParaxialTexCoordSystem.h
+        ${COMMON_SOURCE_DIR}/Model/PatchNode.h
         ${COMMON_SOURCE_DIR}/Model/PickResult.h
         ${COMMON_SOURCE_DIR}/Model/PointEntityWithBrushesIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/PointFile.h
@@ -663,6 +675,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Model/TexCoordSystem.h
         ${COMMON_SOURCE_DIR}/Model/TransformEntityPropertiesQuickFix.h
         ${COMMON_SOURCE_DIR}/Model/UpdateLinkedGroupsError.h
+        ${COMMON_SOURCE_DIR}/Model/VisibilityState.cpp
         ${COMMON_SOURCE_DIR}/Model/VisibilityState.h
         ${COMMON_SOURCE_DIR}/Model/WorldBoundsIssueGenerator.h
         ${COMMON_SOURCE_DIR}/Model/WorldNode.h
@@ -696,6 +709,9 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Renderer/GridRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/GroupLinkRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/GroupRenderer.h
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArray.h
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArrayMap.h
+        ${COMMON_SOURCE_DIR}/Renderer/IndexArrayMapBuilder.h
         ${COMMON_SOURCE_DIR}/Renderer/IndexedVertexList.h
         ${COMMON_SOURCE_DIR}/Renderer/IndexRangeMap.h
         ${COMMON_SOURCE_DIR}/Renderer/IndexRangeMapBuilder.h
@@ -703,6 +719,7 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Renderer/LinkRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/MapRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/OrthographicCamera.h
+        ${COMMON_SOURCE_DIR}/Renderer/PatchRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/PerspectiveCamera.h
         ${COMMON_SOURCE_DIR}/Renderer/PointGuideRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/PointHandleRenderer.h
@@ -723,6 +740,9 @@ set(COMMON_HEADER
         ${COMMON_SOURCE_DIR}/Renderer/SpikeGuideRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/TextAnchor.h
         ${COMMON_SOURCE_DIR}/Renderer/TextRenderer.h
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayMap.h
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayMapBuilder.h
+        ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexArrayRenderer.h
         ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexRangeMap.h
         ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexRangeMapBuilder.h
         ${COMMON_SOURCE_DIR}/Renderer/TexturedIndexRangeRenderer.h

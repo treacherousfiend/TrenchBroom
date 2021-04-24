@@ -150,7 +150,9 @@ namespace TrenchBroom {
             const vm::vec3& normal() const;
             vm::vec3 center() const;
             vm::vec3 boundsCenter() const;
-            FloatType area(vm::axis::type axis) const;
+            FloatType projectedArea(vm::axis::type axis) const;
+            FloatType area() const;
+            bool coplanarWith(const vm::plane3d& plane) const;
 
             const BrushFaceAttributes& attributes() const;
             void setAttributes(const BrushFaceAttributes& attributes);

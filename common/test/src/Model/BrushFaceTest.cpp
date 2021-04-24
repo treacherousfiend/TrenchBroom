@@ -23,10 +23,11 @@
 #include "IO/NodeReader.h"
 #include "IO/TestParserStatus.h"
 #include "Model/BrushError.h"
-#include "Model/BrushNode.h"
+#include "Model/Brush.h"
 #include "Model/BrushBuilder.h"
 #include "Model/BrushFace.h"
 #include "Model/BrushFaceAttributes.h"
+#include "Model/BrushNode.h"
 #include "Model/Entity.h"
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
@@ -117,6 +118,23 @@ namespace TrenchBroom {
 
             CHECK(texture.usageCount() == 0u);
             CHECK(texture2.usageCount() == 0u);
+        }
+
+        TEST_CASE("BrushFaceTest.projectedArea") {
+            const auto worldBounds = vm::bbox3{8192.0};
+            const auto builder = BrushBuilder{MapFormat::Standard, worldBounds};
+
+            auto brush = builder.createCuboid(vm::bbox3(vm::vec3(-64, -64, -64), vm::vec3(64, 64, 64)), "texture").value();
+            REQUIRE(brush.transform(worldBounds, vm::rotation_matrix(0.0, 0.0, vm::to_radians(45.0)), false).is_success());
+
+            const auto& face = brush.faces().front();
+            REQUIRE(face.boundary().normal.z() == vm::approx(0.0));
+            REQUIRE(face.area() == vm::approx{128.0 * 128.0});
+            
+            const auto expectedSize = std::cos(vm::to_radians(45.0)) * 128.0 * 128.0;
+            CHECK(face.projectedArea(vm::axis::x) == vm::approx{expectedSize});
+            CHECK(face.projectedArea(vm::axis::y) == vm::approx{expectedSize});
+            CHECK(face.projectedArea(vm::axis::z) == vm::approx{0.0});
         }
 
         static void getFaceVertsAndTexCoords(const BrushFace& face,
@@ -537,7 +555,7 @@ namespace TrenchBroom {
 
             IO::TestParserStatus status;
             std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
-            BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
+            BrushNode* pyramidLight = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
             Brush brush = pyramidLight->brush();
@@ -593,7 +611,7 @@ namespace TrenchBroom {
             IO::TestParserStatus status;
 
             std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
-            BrushNode* pyramidLight = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
+            BrushNode* pyramidLight = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
             REQUIRE(pyramidLight != nullptr);
             
             Brush brush = pyramidLight->brush();
@@ -653,7 +671,7 @@ namespace TrenchBroom {
             IO::TestParserStatus status;
 
             std::vector<Node*> nodes = IO::NodeReader::read(data, MapFormat::Valve, worldBounds, status);
-            BrushNode* brushNode = static_cast<BrushNode*>(nodes.at(0)->children().at(0));
+            BrushNode* brushNode = dynamic_cast<BrushNode*>(nodes.at(0)->children().at(0));
             CHECK(brushNode != nullptr);
             
             Brush brush = brushNode->brush();

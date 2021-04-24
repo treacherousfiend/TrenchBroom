@@ -277,30 +277,48 @@ namespace TrenchBroom {
             return fromPlane * bounds.center();
         }
 
-        FloatType BrushFace::area(const vm::axis::type axis) const {
+        FloatType BrushFace::projectedArea(const vm::axis::type axis) const {
             FloatType c1 = 0.0;
             FloatType c2 = 0.0;
-            switch (axis) {
-                case vm::axis::x:
-                    for (const BrushHalfEdge* halfEdge : m_geometry->boundary()) {
-                        c1 += halfEdge->origin()->position().y() * halfEdge->destination()->position().z();
-                        c2 += halfEdge->origin()->position().z() * halfEdge->destination()->position().y();
-                    }
-                    break;
-                case vm::axis::y:
-                    for (const BrushHalfEdge* halfEdge : m_geometry->boundary()) {
-                        c1 += halfEdge->origin()->position().z() * halfEdge->destination()->position().x();
-                        c2 += halfEdge->origin()->position().x() * halfEdge->destination()->position().z();
-                    }
-                    break;
-                case vm::axis::z:
-                    for (const BrushHalfEdge* halfEdge : m_geometry->boundary()) {
-                        c1 += halfEdge->origin()->position().x() * halfEdge->destination()->position().y();
-                        c2 += halfEdge->origin()->position().y() * halfEdge->destination()->position().x();
-                    }
-                    break;
-            };
+            for (const BrushHalfEdge* halfEdge : m_geometry->boundary()) {
+                const auto origin = vm::swizzle(halfEdge->origin()->position(), axis);
+                const auto destination = vm::swizzle(halfEdge->destination()->position(), axis);
+                c1 += origin.x() * destination.y();
+                c2 += origin.y() * destination.x();
+            }
             return vm::abs((c1 - c2) / 2.0);
+        }
+
+        FloatType BrushFace::area() const {
+            auto result = static_cast<FloatType>(0);
+
+            const auto* firstEdge = m_geometry->boundary().front();
+            const auto* currentEdge = firstEdge->next();
+            const auto* vertex0 = firstEdge->origin();
+            do {
+                const auto* vertex1 = currentEdge->origin();
+                const auto* vertex2 = currentEdge->destination();
+                const auto side0 = vertex1->position() - vertex0->position();
+                const auto side1 = vertex2->position() - vertex0->position();
+                result += vm::length(vm::cross(side0, side1));
+
+                currentEdge = currentEdge->next();
+            } while (currentEdge->next() != firstEdge);
+
+            return result / 2.0;
+        }
+
+        bool BrushFace::coplanarWith(const vm::plane3d& plane) const {
+            // Test if the face's center lies on the reference plane within an epsilon.
+            if (!vm::is_zero(plane.point_distance(center()), vm::constants<FloatType>::almost_zero() * 10.0)) {
+                return false;
+            }
+
+            // Test if the normals are colinear by checking their enclosed angle.
+            if (1.0 - vm::dot(boundary().normal, plane.normal) >= vm::constants<FloatType>::colinear_epsilon()) {
+                return false;
+            }
+            return true;
         }
 
         const BrushFaceAttributes& BrushFace::attributes() const {

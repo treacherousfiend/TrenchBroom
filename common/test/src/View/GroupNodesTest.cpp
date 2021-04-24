@@ -22,10 +22,12 @@
 #include "Model/EntityNode.h"
 #include "Model/GroupNode.h"
 #include "Model/LayerNode.h"
+#include "Model/PatchNode.h"
 #include "Model/WorldNode.h"
 #include "View/MapDocumentTest.h"
 #include "View/PasteType.h"
 
+#include <functional>
 #include <set>
 
 #include "TestUtils.h"
@@ -41,85 +43,90 @@ namespace TrenchBroom {
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.createGroupWithOneNode", "[GroupNodesTest]") {
-            Model::BrushNode* brush = createBrushNode();
-            addNode(*document, document->parentForNodes(), brush);
-            document->select(brush);
+            using CreateNode = std::function<Model::Node*(const MapDocumentTest&)>;
+            CreateNode createNode = GENERATE_COPY(
+                CreateNode{[](const auto& test) { return test.createBrushNode(); }},
+                CreateNode{[](const auto& test) { return test.createPatchNode(); }});
+
+            auto* node = createNode(*this);
+            addNode(*document, document->parentForNodes(), node);
+            document->select(node);
 
             Model::GroupNode* group = document->groupSelection("test");
             CHECK(group != nullptr);
 
-            CHECK(brush->parent() == group);
+            CHECK(node->parent() == group);
             CHECK(group->selected());
-            CHECK_FALSE(brush->selected());
+            CHECK_FALSE(node->selected());
 
             document->undoCommand();
             CHECK(group->parent() == nullptr);
-            CHECK(brush->parent() == document->parentForNodes());
-            CHECK(brush->selected());
+            CHECK(node->parent() == document->parentForNodes());
+            CHECK(node->selected());
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.createGroupWithPartialBrushEntity", "[GroupNodesTest]") {
-            Model::BrushNode* brush1 = createBrushNode();
-            addNode(*document, document->parentForNodes(), brush1);
+            Model::BrushNode* child1 = createBrushNode();
+            addNode(*document, document->parentForNodes(), child1);
 
-            Model::BrushNode* brush2 = createBrushNode();
-            addNode(*document, document->parentForNodes(), brush2);
+            Model::PatchNode* child2 = createPatchNode();
+            addNode(*document, document->parentForNodes(), child2);
 
             Model::EntityNode* entity = new Model::EntityNode();
             addNode(*document, document->parentForNodes(), entity);
-            reparentNodes(*document, entity, { brush1, brush2 });
+            reparentNodes(*document, entity, { child1, child2 });
 
-            document->select(brush1);
+            document->select(child1);
 
             Model::GroupNode* group = document->groupSelection("test");
             CHECK(group != nullptr);
 
-            CHECK(brush1->parent() == entity);
-            CHECK(brush2->parent() == entity);
+            CHECK(child1->parent() == entity);
+            CHECK(child2->parent() == entity);
             CHECK(entity->parent() == group);
             CHECK(group->selected());
-            CHECK_FALSE(brush1->selected());
+            CHECK_FALSE(child1->selected());
 
             document->undoCommand();
             CHECK(group->parent() == nullptr);
-            CHECK(brush1->parent() == entity);
-            CHECK(brush2->parent() == entity);
+            CHECK(child1->parent() == entity);
+            CHECK(child2->parent() == entity);
             CHECK(entity->parent() == document->parentForNodes());
             CHECK_FALSE(group->selected());
-            CHECK(brush1->selected());
+            CHECK(child1->selected());
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.createGroupWithFullBrushEntity", "[GroupNodesTest]") {
-            Model::BrushNode* brush1 = createBrushNode();
-            addNode(*document, document->parentForNodes(), brush1);
+            Model::BrushNode* child1 = createBrushNode();
+            addNode(*document, document->parentForNodes(), child1);
 
-            Model::BrushNode* brush2 = createBrushNode();
-            addNode(*document, document->parentForNodes(), brush2);
+            Model::PatchNode* child2 = createPatchNode();
+            addNode(*document, document->parentForNodes(), child2);
 
             Model::EntityNode* entity = new Model::EntityNode();
             addNode(*document, document->parentForNodes(), entity);
-            reparentNodes(*document, entity, { brush1, brush2 });
+            reparentNodes(*document, entity, { child1, child2 });
 
-            document->select(std::vector<Model::Node*>({ brush1, brush2 }));
+            document->select(std::vector<Model::Node*>({ child1, child2 }));
 
             Model::GroupNode* group = document->groupSelection("test");
             CHECK(group != nullptr);
 
-            CHECK(brush1->parent() == entity);
-            CHECK(brush2->parent() == entity);
+            CHECK(child1->parent() == entity);
+            CHECK(child2->parent() == entity);
             CHECK(entity->parent() == group);
             CHECK(group->selected());
-            CHECK_FALSE(brush1->selected());
-            CHECK_FALSE(brush2->selected());
+            CHECK_FALSE(child1->selected());
+            CHECK_FALSE(child2->selected());
 
             document->undoCommand();
             CHECK(group->parent() == nullptr);
-            CHECK(brush1->parent() == entity);
-            CHECK(brush2->parent() == entity);
+            CHECK(child1->parent() == entity);
+            CHECK(child2->parent() == entity);
             CHECK(entity->parent() == document->parentForNodes());
             CHECK_FALSE(group->selected());
-            CHECK(brush1->selected());
-            CHECK(brush2->selected());
+            CHECK(child1->selected());
+            CHECK(child2->selected());
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.pasteInGroup", "[GroupNodesTest]") {
@@ -152,6 +159,45 @@ namespace TrenchBroom {
                 }
             }
             return false;
+        }
+
+        TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.copyPasteGroupResetsDuplicateGroupId", "[GroupNodesTest]") {
+            auto* entityNode = new Model::EntityNode{};
+            document->addNodes({{document->parentForNodes(), {entityNode}}});
+
+            document->select(entityNode);
+            auto* groupNode = document->groupSelection("test");
+
+            const auto persistentGroupId = groupNode->persistentId();
+            REQUIRE(persistentGroupId.has_value());
+
+            document->deselectAll();
+            document->select(groupNode);
+
+            const auto str = document->serializeSelectedNodes();
+
+            SECTION("Copy and paste resets persistent group ID") {
+                document->deselectAll();
+                REQUIRE(document->paste(str) == PasteType::Node);
+
+                auto* pastedGroupNode = dynamic_cast<Model::GroupNode*>(document->world()->defaultLayer()->children().back());
+                REQUIRE(pastedGroupNode != nullptr);
+                REQUIRE(pastedGroupNode != groupNode);
+
+                CHECK(pastedGroupNode->persistentId() != persistentGroupId);
+            }
+
+            SECTION("Cut and paste retains persistent group ID") {
+                document->deleteObjects();
+                document->deselectAll();
+                REQUIRE(document->paste(str) == PasteType::Node);
+
+                auto* pastedGroupNode = dynamic_cast<Model::GroupNode*>(document->world()->defaultLayer()->children().back());
+                REQUIRE(pastedGroupNode != nullptr);
+                REQUIRE(pastedGroupNode != groupNode);
+
+                CHECK(pastedGroupNode->persistentId() == persistentGroupId);
+            }
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.undoMoveGroupContainingBrushEntity", "[GroupNodesTest]") {
@@ -250,18 +296,57 @@ namespace TrenchBroom {
 
             auto* linkedGroupNode = document->createLinkedDuplicate();
 
-            REQUIRE_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedGroupNode}));
+            document->deselectAll();
+            document->select(linkedGroupNode);
+
+            auto* linkedGroupNode2 = document->createLinkedDuplicate();
 
             document->deselectAll();
-            document->select(groupNode);
+            REQUIRE_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedGroupNode, linkedGroupNode2}));
 
-            document->ungroupSelection();
-            CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{linkedGroupNode, brushNode}));
-            CHECK_FALSE(linkedGroupNode->group().linkedGroupId().has_value());
+            SECTION("Given three linked groups, we ungroup one of them, the other two remain linked") {
+                document->select(linkedGroupNode2);
+
+                auto* linkedBrushNode2 = linkedGroupNode2->children().front();
+
+                document->ungroupSelection();
+                CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedGroupNode, linkedBrushNode2}));
+                CHECK(groupNode->group().linkedGroupId().has_value());
+                CHECK(linkedGroupNode->group().linkedGroupId().has_value());
+                CHECK(groupNode->group().linkedGroupId() == linkedGroupNode->group().linkedGroupId());
+            }
+
+            SECTION("Given three linked groups, we ungroup two of them, and the remaining one becomes a regular group") {
+                document->select(linkedGroupNode);
+                document->select(linkedGroupNode2);
+
+                auto* linkedBrushNode = linkedGroupNode->children().front();
+                auto* linkedBrushNode2 = linkedGroupNode2->children().front();
+
+                document->ungroupSelection();
+                CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedBrushNode, linkedBrushNode2}));
+                CHECK_FALSE(groupNode->group().linkedGroupId().has_value());
+            }
+
+            SECTION("Given three linked groups, we ungroup all of them") {
+                document->select(groupNode);
+                document->select(linkedGroupNode);
+                document->select(linkedGroupNode2);
+
+                auto* linkedBrushNode = linkedGroupNode->children().front();
+                auto* linkedBrushNode2 = linkedGroupNode2->children().front();
+
+                document->ungroupSelection();
+                CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{brushNode, linkedBrushNode, linkedBrushNode2}));
+            }
 
             document->undoCommand();
-            CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedGroupNode}));
+            CHECK_THAT(document->world()->defaultLayer()->children(), Catch::UnorderedEquals(std::vector<Model::Node*>{groupNode, linkedGroupNode, linkedGroupNode2}));
+            CHECK(groupNode->group().linkedGroupId().has_value());
             CHECK(linkedGroupNode->group().linkedGroupId().has_value());
+            CHECK(linkedGroupNode2->group().linkedGroupId().has_value());
+            CHECK(groupNode->group().linkedGroupId() == linkedGroupNode->group().linkedGroupId());
+            CHECK(groupNode->group().linkedGroupId() == linkedGroupNode2->group().linkedGroupId());
         }
 
         TEST_CASE_METHOD(GroupNodesTest, "GroupNodesTest.createLinkedDuplicate", "[GroupNodesTest]") {
