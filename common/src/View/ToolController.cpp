@@ -493,7 +493,7 @@ namespace TrenchBroom {
         void ToolController::cancelMouseDrag() {}
         bool ToolController::anyToolDragging(const InputState&) const {return false; }
 
-        void ToolController::setRenderOptions(const InputState&, Renderer::RenderContext&) {}
+        void ToolController::setRenderOptions(const InputState&, Renderer::RenderContext&) const {}
         void ToolController::render(const InputState&, Renderer::RenderContext&, Renderer::RenderBatch&) {}
 
         bool ToolController::dragEnter(const InputState&, const std::string&) { return false; }
