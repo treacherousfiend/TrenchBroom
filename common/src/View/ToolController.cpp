@@ -472,8 +472,37 @@ namespace TrenchBroom {
         Tool* ToolController::tool() { return doGetTool(); }
         const Tool* ToolController::tool() const { return doGetTool(); }
         bool ToolController::toolActive() const { return tool()->active(); }
+        
         bool ToolController::thisToolDragging() const { return m_dragging; }
         void ToolController::setThisToolDragging(const bool dragging) { m_dragging = dragging; }
+
+        void ToolController::pick(const InputState&, Model::PickResult&) {}
+
+        void ToolController::modifierKeyChange(const InputState&) {}
+
+        void ToolController::mouseDown(const InputState&) {}
+        void ToolController::mouseUp(const InputState&) {}
+        bool ToolController::mouseClick(const InputState&) { return false; }
+        bool ToolController::mouseDoubleClick(const InputState&) { return false; }
+        void ToolController::mouseMove(const InputState&) {}
+        void ToolController::mouseScroll(const InputState&) {}
+
+        bool ToolController::startMouseDrag(const InputState&) { return false; }
+        bool ToolController::mouseDrag(const InputState&) { return false; }
+        void ToolController::endMouseDrag(const InputState&) {}
+        void ToolController::cancelMouseDrag() {}
+        bool ToolController::anyToolDragging(const InputState&) const {return false; }
+
+        void ToolController::setRenderOptions(const InputState&, Renderer::RenderContext&) {}
+        void ToolController::render(const InputState&, Renderer::RenderContext&, Renderer::RenderBatch&) {}
+
+        bool ToolController::dragEnter(const InputState&, const std::string&) { return false; }
+        bool ToolController::dragMove(const InputState&) { return false; }
+        void ToolController::dragLeave(const InputState&) {}
+        bool ToolController::dragDrop(const InputState&) { return false; }
+
+        bool ToolController::cancel() { return false; }
+
         void ToolController::refreshViews() { tool()->refreshViews(); }
 
         ToolControllerGroup::ToolControllerGroup() :

@@ -379,32 +379,32 @@ namespace TrenchBroom {
             bool thisToolDragging() const;
             void setThisToolDragging(bool dragging);
 
-            virtual void pick(const InputState& inputState, Model::PickResult& pickResult) = 0;
+            virtual void pick(const InputState& inputState, Model::PickResult& pickResult);
 
-            virtual void modifierKeyChange(const InputState& inputState) = 0;
+            virtual void modifierKeyChange(const InputState& inputState);
 
-            virtual void mouseDown(const InputState& inputState) = 0;
-            virtual void mouseUp(const InputState& inputState) = 0;
-            virtual bool mouseClick(const InputState& inputState) = 0;
-            virtual bool mouseDoubleClick(const InputState& inputState) = 0;
-            virtual void mouseMove(const InputState& inputState) = 0;
-            virtual void mouseScroll(const InputState& inputState) = 0;
+            virtual void mouseDown(const InputState& inputState);
+            virtual void mouseUp(const InputState& inputState);
+            virtual bool mouseClick(const InputState& inputState);
+            virtual bool mouseDoubleClick(const InputState& inputState);
+            virtual void mouseMove(const InputState& inputState);
+            virtual void mouseScroll(const InputState& inputState);
 
-            virtual bool startMouseDrag(const InputState& inputState) = 0;
-            virtual bool mouseDrag(const InputState& inputState) = 0;
-            virtual void endMouseDrag(const InputState& inputState) = 0;
-            virtual void cancelMouseDrag() = 0;
-            virtual bool anyToolDragging(const InputState& inputState) const = 0;
+            virtual bool startMouseDrag(const InputState& inputState);
+            virtual bool mouseDrag(const InputState& inputState);
+            virtual void endMouseDrag(const InputState& inputState);
+            virtual void cancelMouseDrag();
+            virtual bool anyToolDragging(const InputState& inputState) const;
 
-            virtual void setRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) = 0;
-            virtual void render(const InputState& inputState, Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch) = 0;
+            virtual void setRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext);
+            virtual void render(const InputState& inputState, Renderer::RenderContext& renderContext, Renderer::RenderBatch& renderBatch);
 
-            virtual bool dragEnter(const InputState& inputState, const std::string& payload) = 0;
-            virtual bool dragMove(const InputState& inputState) = 0;
-            virtual void dragLeave(const InputState& inputState) = 0;
-            virtual bool dragDrop(const InputState& inputState) = 0;
+            virtual bool dragEnter(const InputState& inputState, const std::string& payload);
+            virtual bool dragMove(const InputState& inputState);
+            virtual void dragLeave(const InputState& inputState);
+            virtual bool dragDrop(const InputState& inputState);
 
-            virtual bool cancel() = 0;
+            virtual bool cancel();
         protected:
             void refreshViews();
         private:
