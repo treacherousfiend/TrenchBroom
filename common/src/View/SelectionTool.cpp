@@ -42,7 +42,7 @@
 namespace TrenchBroom {
     namespace View {
         SelectionTool::SelectionTool(std::weak_ptr<MapDocument> document) :
-        ToolControllerBase(),
+        ToolController(),
         Tool(true),
         m_document(document) {}
 
@@ -63,7 +63,7 @@ namespace TrenchBroom {
             return node;
         }
 
-        bool SelectionTool::doMouseClick(const InputState& inputState) {
+        bool SelectionTool::mouseClick(const InputState& inputState) {
             if (!handleClick(inputState)) {
                 return false;
             }
@@ -131,7 +131,7 @@ namespace TrenchBroom {
             return true;
         }
 
-        bool SelectionTool::doMouseDoubleClick(const InputState& inputState) {
+        bool SelectionTool::mouseDoubleClick(const InputState& inputState) {
             if (!handleClick(inputState)) {
                 return false;
             }
@@ -224,7 +224,7 @@ namespace TrenchBroom {
             return Model::collectSelectableNodes(node->children(), editorContext);
         }
 
-        void SelectionTool::doMouseScroll(const InputState& inputState) {
+        void SelectionTool::mouseScroll(const InputState& inputState) {
             if (inputState.checkModifierKeys(MK_Yes, MK_Yes, MK_No)) {
                 adjustGrid(inputState);
             } else if (inputState.checkModifierKeys(MK_Yes, MK_No, MK_No)) {
@@ -325,7 +325,7 @@ namespace TrenchBroom {
             }
         }
 
-        bool SelectionTool::doStartMouseDrag(const InputState& inputState) {
+        bool SelectionTool::startMouseDrag(const InputState& inputState) {
             if (!handleClick(inputState) || !isMultiClick(inputState)) {
                 return false;
             }
@@ -372,7 +372,7 @@ namespace TrenchBroom {
             return false;
         }
 
-        bool SelectionTool::doMouseDrag(const InputState& inputState) {
+        bool SelectionTool::mouseDrag(const InputState& inputState) {
             auto document = kdl::mem_lock(m_document);
             const auto& editorContext = document->editorContext();
             if (document->hasSelectedBrushFaces()) {
@@ -397,17 +397,17 @@ namespace TrenchBroom {
             return true;
         }
 
-        void SelectionTool::doEndMouseDrag(const InputState&) {
+        void SelectionTool::endMouseDrag(const InputState&) {
             auto document = kdl::mem_lock(m_document);
             document->commitTransaction();
         }
 
-        void SelectionTool::doCancelMouseDrag() {
+        void SelectionTool::cancelMouseDrag() {
             auto document = kdl::mem_lock(m_document);
             document->cancelTransaction();
         }
 
-        void SelectionTool::doSetRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const {
+        void SelectionTool::setRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const {
             auto document = kdl::mem_lock(m_document);
             const auto& hit = firstHit(inputState, Model::nodeHitType());
             if (hit.isMatch()) {
@@ -419,7 +419,7 @@ namespace TrenchBroom {
             }
         }
 
-        bool SelectionTool::doCancel() {
+        bool SelectionTool::cancel() {
             // closing the current group is handled in MapViewBase
             return false;
         }

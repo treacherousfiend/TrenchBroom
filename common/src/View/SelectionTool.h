@@ -53,7 +53,7 @@ namespace TrenchBroom {
          */
         std::vector<Model::Node*> hitsToNodesWithGroupPicking(const std::vector<Model::Hit>& hits);
 
-        class SelectionTool : public ToolControllerBase<NoPickingPolicy, NoKeyPolicy, MousePolicy, MouseDragPolicy, RenderPolicy, NoDropPolicy>, public Tool {
+        class SelectionTool : public ToolController, public Tool {
         private:
             std::weak_ptr<MapDocument> m_document;
         public:
@@ -62,8 +62,8 @@ namespace TrenchBroom {
             Tool* doGetTool() override;
             const Tool* doGetTool() const override;
 
-            bool doMouseClick(const InputState& inputState) override;
-            bool doMouseDoubleClick(const InputState& inputState) override;
+            bool mouseClick(const InputState& inputState) override;
+            bool mouseDoubleClick(const InputState& inputState) override;
 
             bool handleClick(const InputState& inputState) const;
             bool isFaceClick(const InputState& inputState) const;
@@ -73,18 +73,18 @@ namespace TrenchBroom {
 
             std::vector<Model::Node*> collectSelectableChildren(const Model::EditorContext& editorContext, const Model::Node* node) const;
 
-            void doMouseScroll(const InputState& inputState) override;
+            void mouseScroll(const InputState& inputState) override;
             void adjustGrid(const InputState& inputState);
             void drillSelection(const InputState& inputState);
 
-            bool doStartMouseDrag(const InputState& inputState) override;
-            bool doMouseDrag(const InputState& inputState) override;
-            void doEndMouseDrag(const InputState& inputState) override;
-            void doCancelMouseDrag() override;
+            bool startMouseDrag(const InputState& inputState) override;
+            bool mouseDrag(const InputState& inputState) override;
+            void endMouseDrag(const InputState& inputState) override;
+            void cancelMouseDrag() override;
 
-            void doSetRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const override;
+            void setRenderOptions(const InputState& inputState, Renderer::RenderContext& renderContext) const override;
 
-            bool doCancel() override;
+            bool cancel() override;
         };
     }
 }
