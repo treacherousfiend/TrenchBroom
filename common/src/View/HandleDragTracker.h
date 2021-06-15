@@ -309,8 +309,7 @@ namespace TrenchBroom {
         private:
             bool drag(const InputState& inputState, const IdenticalPositionPolicy identicalPositionPolicy) {
                 const auto proposedHandlePosition = m_proposeHandlePosition(inputState, m_dragState);
-                const bool isIdenticalPosition = *proposedHandlePosition == m_dragState.currentHandlePosition;
-                if (!proposedHandlePosition || (isIdenticalPosition && identicalPositionPolicy == IdenticalPositionPolicy::SkipDrag)) {
+                if (!proposedHandlePosition || (*proposedHandlePosition == m_dragState.currentHandlePosition && identicalPositionPolicy == IdenticalPositionPolicy::SkipDrag)) {
                     return true;
                 }
 
