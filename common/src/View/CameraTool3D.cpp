@@ -128,16 +128,7 @@ namespace TrenchBroom {
             const bool zoom = inputState.modifierKeysPressed(ModifierKeys::MKShift);
             const float scrollDist = inputState.scrollY();
 
-            if (shouldAdjustFlySpeed(inputState)) {
-                const float speed = pref(Preferences::CameraFlyMoveSpeed);
-                // adjust speed by 5% of the current speed per scroll line
-                const float deltaSpeed = factor * speed * 0.05f * scrollDist;
-                const float newSpeed = vm::clamp(speed + deltaSpeed, Preferences::MinCameraFlyMoveSpeed, Preferences::MaxCameraFlyMoveSpeed);
-
-                // prefs are only changed when releasing RMB
-                auto& prefs = PreferenceManager::instance();
-                prefs.set(Preferences::CameraFlyMoveSpeed, newSpeed);
-            } else if (shouldMove(inputState)) {
+            if (shouldMove(inputState)) {
                 if (zoom) {
                     const float zoomFactor = 1.0f + scrollDist / 50.0f * factor;
                     m_camera.zoom(zoomFactor);
@@ -196,6 +187,22 @@ namespace TrenchBroom {
             public:
                 LookDragTracker(Renderer::PerspectiveCamera& camera) :
                 m_camera{camera} {}
+
+                void mouseScroll(const InputState& inputState) override {
+                    if (shouldAdjustFlySpeed(inputState)) {
+                        const float factor = pref(Preferences::CameraMouseWheelInvert) ? -1.0f : 1.0f;
+                        const float scrollDist = inputState.scrollY();
+
+                        const float speed = pref(Preferences::CameraFlyMoveSpeed);
+                        // adjust speed by 5% of the current speed per scroll line
+                        const float deltaSpeed = factor * speed * 0.05f * scrollDist;
+                        const float newSpeed = vm::clamp(speed + deltaSpeed, Preferences::MinCameraFlyMoveSpeed, Preferences::MaxCameraFlyMoveSpeed);
+
+                        // prefs are only changed when releasing RMB
+                        auto& prefs = PreferenceManager::instance();
+                        prefs.set(Preferences::CameraFlyMoveSpeed, newSpeed);
+                    }
+                }
 
                 bool drag(const InputState& inputState) override {
                     const float hAngle = static_cast<float>(inputState.mouseDX()) * lookSpeedH(m_camera);
