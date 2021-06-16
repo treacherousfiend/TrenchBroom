@@ -51,6 +51,9 @@ namespace TrenchBroom {
             static const Type Comment       = 1 <<  9; // line comment starting with ///
             static const Type Eof           = 1 << 10; // end of file
             static const Type Eol           = 1 << 11; // end of line
+            static const Type Visgroups     = 1 << 12; // Source engine visgroups
+            static const Type ViewSettings  = 1 << 13; // Source engine view settings (grid size, etc.)
+            static const Type World         = 1 << 14; // Source engine worldspawn (everything is nested in it)
             static const Type Number        = Integer | Decimal;
         }
 
@@ -91,12 +94,14 @@ namespace TrenchBroom {
 
             ~StandardMapParser() override;
         protected:
+            void parseSourceWorld(ParserStatus& status, Model::MapFormat sourceMapFormat);
             void parseEntities(ParserStatus& status);
             void parseBrushesOrPatches(ParserStatus& status);
             void parseBrushFaces(ParserStatus& status);
 
             void reset();
         private:
+            void parseWorld(ParserStatus& status);
             void parseEntity(ParserStatus& status);
             void parseEntityProperty(std::vector<Model::EntityProperty>& properties, PropertyKeys& keys, ParserStatus& status);
 
@@ -111,6 +116,7 @@ namespace TrenchBroom {
             void parseHexen2Face(ParserStatus& status);
             void parseDaikatanaFace(ParserStatus& status);
             void parseValveFace(ParserStatus& status);
+            void parseSourceFace(ParserStatus& status);
             void parsePrimitiveFace(ParserStatus& status);
 
             void parsePatch(ParserStatus& status, size_t startLine);
@@ -119,6 +125,7 @@ namespace TrenchBroom {
             std::string parseTextureName(ParserStatus& status);
             std::tuple<vm::vec3, float, vm::vec3, float> parseValveTextureAxes(ParserStatus& status);
             std::tuple<vm::vec3, vm::vec3> parsePrimitiveTextureAxes(ParserStatus& status);
+            std::string parseSourceId(ParserStatus& status);
 
             template <size_t S=3, typename T=FloatType>
             vm::vec<T,S> parseFloatVector(const QuakeMapToken::Type o, const QuakeMapToken::Type c) {

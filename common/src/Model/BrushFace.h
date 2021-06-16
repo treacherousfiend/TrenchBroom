@@ -134,6 +134,16 @@ namespace TrenchBroom {
              */
             static kdl::result<BrushFace, BrushError> createFromValve(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attributes, const vm::vec3& texAxisX, const vm::vec3& texAxisY, MapFormat mapFormat);
 
+             /**
+              * Creates a face from Valve texture projection.
+              *
+              * Used when loading/pasting a Source engine map.
+              * 
+              * The returned face always uses Valve's TexCoordSystem.
+              */
+            static kdl::result<BrushFace, BrushError> createFromSource(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& attributes, const vm::vec3& texAxisX, const vm::vec3& texAxisY, MapFormat mapFormat);
+
+
             static kdl::result<BrushFace, BrushError> create(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem);
 
             BrushFace(const BrushFace::Points& points, const vm::plane3& boundary, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem);

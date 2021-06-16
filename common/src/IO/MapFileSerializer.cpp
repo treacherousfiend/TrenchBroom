@@ -210,6 +210,18 @@ namespace TrenchBroom {
             }
         };
 
+        class SourceFileSerializer : public QuakeFileSerializer {
+        public:
+            explicit SourceFileSerializer(std::ostream& stream) :
+                QuakeFileSerializer(stream) {}
+        private:
+            void doWriteBrushFace(std::ostream& stream, const Model::BrushFace& face) const override {
+                writeFacePoints(stream, face);
+                writeValveTextureInfo(stream, face);
+                fmt::format_to(std::ostreambuf_iterator<char>(stream), "\n");
+            }
+        };
+
         std::unique_ptr<NodeSerializer> MapFileSerializer::create(const Model::MapFormat format, std::ostream& stream) {
             switch (format) {
                 case Model::MapFormat::Standard:
@@ -228,6 +240,8 @@ namespace TrenchBroom {
                     return std::make_unique<ValveFileSerializer>(stream);
                 case Model::MapFormat::Hexen2:
                     return std::make_unique<Hexen2FileSerializer>(stream);
+                case Model::MapFormat::Source:
+                    return std::make_unique<SourceFileSerializer>(stream);
                 case Model::MapFormat::Unknown:
                     throw FileFormatException("Unknown map file format");
                 switchDefault()

@@ -51,15 +51,16 @@ namespace TrenchBroom {
             while (!eof()) {
                 auto startLine = line();
                 auto startColumn = column();
-                const auto* c = curPos();
-                switch (*c) {
+                const auto* f1 = curPos();
+                int i = 0;
+                switch (*f1) {
                     case '/':
                         advance();
                         if (curChar() == '/') {
                             advance();
                             if (curChar() == '/' && lookAhead(1) == ' ') {
                                 advance();
-                                return Token(QuakeMapToken::Comment, c, c+3, offset(c), startLine, startColumn);
+                                return Token(QuakeMapToken::Comment, f1, f1+3, offset(f1), startLine, startColumn);
                             }
                             discardUntil("\n\r");
                         }
@@ -72,27 +73,27 @@ namespace TrenchBroom {
                         break;
                     case '{':
                         advance();
-                        return Token(QuakeMapToken::OBrace, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::OBrace, f1, f1+1, offset(f1), startLine, startColumn);
                     case '}':
                         advance();
-                        return Token(QuakeMapToken::CBrace, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::CBrace, f1, f1+1, offset(f1), startLine, startColumn);
                     case '(':
                         advance();
-                        return Token(QuakeMapToken::OParenthesis, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::OParenthesis, f1, f1+1, offset(f1), startLine, startColumn);
                     case ')':
                         advance();
-                        return Token(QuakeMapToken::CParenthesis, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::CParenthesis, f1, f1+1, offset(f1), startLine, startColumn);
                     case '[':
                         advance();
-                        return Token(QuakeMapToken::OBracket, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::OBracket, f1, f1+1, offset(f1), startLine, startColumn);
                     case ']':
                         advance();
-                        return Token(QuakeMapToken::CBracket, c, c+1, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::CBracket, f1, f1+1, offset(f1), startLine, startColumn);
                     case '"': { // quoted string
                         advance();
-                        c = curPos();
+                        f1 = curPos();
                         const auto* e = readQuotedString('"', "\n}");
-                        return Token(QuakeMapToken::String, c, e, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::String, f1, e, offset(f1), startLine, startColumn);
                     }
                     case '\r':
                         if (lookAhead() == '\n') {
@@ -104,30 +105,176 @@ namespace TrenchBroom {
                     case '\n':
                         if (!m_skipEol) {
                             advance();
-                            return Token(QuakeMapToken::Eol, c, c+1, offset(c), startLine, startColumn);
+                            return Token(QuakeMapToken::Eol, f1, f1+1, offset(f1), startLine, startColumn);
                         }
                         switchFallthrough();
                     case ' ':
                     case '\t':
                         discardWhile(Whitespace());
                         break;
+                    //sort of hack-y way that always checks for source engine stuff cause i couldn't figure out how to implement sourceMapFormat here
+                    case 'v': //if version info or visgroups, skip until we find a closing bracket
+                        //if (lookAhead() == 'i') {
+                        i = 0;
+                        while (curChar() != '}') {
+                            if (lookAhead() == '{') {
+                                i = ++i;
+                            }
+                            advance();
+                        }
+
+                        if (i >= 1) {
+                            advance();
+                            i = --i;
+                        }
+
+                        for (; i >= 1;) {
+                            while (curChar() != '}') {
+                                if (lookAhead() == '{') {
+                                    i = ++i;
+                                }
+                                advance();
+                            }
+                            if (i >= 1) {
+                                advance();
+                                i = --i;
+                            }
+                        }
+                        break;
+                        // Commented out while visgroups are unimplemented
+                        //} else {
+                        //    while (curChar() != '}') {
+                        //        advance();
+                        //    }
+                        //    advance();
+                        //}
+                    case 'w':
+                        // not called (yet) so it causes an error
+                        //return Token(QuakeMapToken::World, f1, f1 + 1, offset(f1), startLine, startColumn);
+                        i = 0;
+                        while (curChar() != '}') {
+                            if (lookAhead() == '{') {
+                                i = ++i;
+                            }
+                            advance();
+                        }
+
+                        if (i >= 1) {
+                            advance();
+                            i = --i;
+                        }
+
+                        for (; i >= 1;) {
+                            while (curChar() != '}') {
+                                if (lookAhead() == '{') {
+                                    i = ++i;
+                                }
+                                advance();
+                            }
+                            if (i >= 1) {
+                                advance();
+                                i = --i;
+                            }
+                        }
+                        break;
+                    case 'c':
+                        i = 0;
+                        while (curChar() != '}') {
+                            if (lookAhead() == '{') {
+                                i = ++i;
+                            }
+                            advance();
+                        }
+
+                        if (i >= 1) {
+                            advance();
+                            i = --i;
+                        }
+
+                        for (; i >= 1;) {
+                            while (curChar() != '}') {
+                                if (lookAhead() == '{') {
+                                    i = ++i;
+                                }
+                                advance();
+                            }
+                            if (i >= 1) {
+                                advance();
+                                i = --i;
+                            }
+                        }
+                        break;
+                    case 'e':
+                        i = 0;
+                        while (curChar() != '}') {
+                            if (lookAhead() == '{') {
+                                i = ++i;
+                            }
+                            advance();
+                        }
+
+                        if (i >= 1) {
+                            advance();
+                            i = --i;
+                        }
+
+                        for (; i >= 1;) {
+                            while (curChar() != '}') {
+                                if (lookAhead() == '{') {
+                                    i = ++i;
+                                }
+                                advance();
+                            }
+                            if (i >= 1) {
+                                advance();
+                                i = --i;
+                            }
+                        }
+                        break;
+                    case 'u':
+                        i = 0;
+                        while (curChar() != '}') {
+                            if (lookAhead() == '{') {
+                                i = ++i;
+                            }
+                            advance();
+                        }
+
+                        if (i >= 1) {
+                            advance();
+                            i = --i;
+                        }
+
+                        for (; i >= 1;) {
+                            while (curChar() != '}') {
+                                if (lookAhead() == '{') {
+                                    i = ++i;
+                                }
+                                advance();
+                            }
+                            if (i >= 1) {
+                                advance();
+                                i = --i;
+                            }
+                        }
+                        break;
                     default: { // whitespace, integer, decimal or word
                         const auto* e = readInteger(NumberDelim());
                         if (e != nullptr) {
-                            return Token(QuakeMapToken::Integer, c, e, offset(c), startLine, startColumn);
+                            return Token(QuakeMapToken::Integer, f1, e, offset(f1), startLine, startColumn);
                         }
 
                         e = readDecimal(NumberDelim());
                         if (e != nullptr) {
-                            return Token(QuakeMapToken::Decimal, c, e, offset(c), startLine, startColumn);
+                            return Token(QuakeMapToken::Decimal, f1, e, offset(f1), startLine, startColumn);
                         }
 
                         e = readUntil(Whitespace());
                         if (e == nullptr) {
-                            throw ParserException(startLine, startColumn, "Unexpected character: " + std::string(c, 1));
+                            throw ParserException(startLine, startColumn, "Unexpected character: " + std::string(f1, 1));
                         }
 
-                        return Token(QuakeMapToken::String, c, e, offset(c), startLine, startColumn);
+                        return Token(QuakeMapToken::String, f1, e, offset(f1), startLine, startColumn);
                     }
                 }
             }
@@ -137,6 +284,7 @@ namespace TrenchBroom {
         const std::string StandardMapParser::BrushPrimitiveId = "brushDef";
         const std::string StandardMapParser::PatchId = "patchDef2";
 
+        // TODO: rename sourceMapFormat so as not to confuse with actual source engine stuff
         StandardMapParser::StandardMapParser(std::string_view str, const Model::MapFormat sourceMapFormat, const Model::MapFormat targetMapFormat) :
         m_tokenizer(QuakeMapTokenizer(std::move(str))),
         m_sourceMapFormat(sourceMapFormat),
@@ -147,6 +295,19 @@ namespace TrenchBroom {
 
 
         StandardMapParser::~StandardMapParser() = default;
+
+        void StandardMapParser::parseSourceWorld(ParserStatus& status, const Model::MapFormat sourceMapFormat) {
+            if (sourceMapFormat != Model::MapFormat::Source) {
+                return;
+            } else {
+                auto token = m_tokenizer.peekToken();
+                while (token.type() != QuakeMapToken::Eof) {
+                    expect(QuakeMapToken::World, token);
+                    parseWorld(status);
+                    token = m_tokenizer.peekToken();
+                }
+            }
+        }
 
         void StandardMapParser::parseEntities(ParserStatus& status) {
             auto token = m_tokenizer.peekToken();
@@ -178,6 +339,17 @@ namespace TrenchBroom {
 
         void StandardMapParser::reset() {
             m_tokenizer.reset();
+        }
+
+        void StandardMapParser::parseWorld(ParserStatus& status) {
+            Token token = m_tokenizer.nextToken();
+            if (token.type() == QuakeMapToken::Eof) { 
+                return;
+            }
+
+            expect(QuakeMapToken::OBrace, token);
+
+            token = m_tokenizer.peekToken();
         }
 
         void StandardMapParser::parseEntity(ParserStatus& status) {
@@ -253,6 +425,9 @@ namespace TrenchBroom {
                 return;
             }
 
+            auto properties = std::vector<Model::EntityProperty>();
+            auto propertyKeys = PropertyKeys();
+
             const auto startLine = token.line();
 
             token = m_tokenizer.peekToken();
@@ -279,6 +454,8 @@ namespace TrenchBroom {
                 } else {
                     parseBrush(status, startLine, false);
                 }
+            } else if (m_sourceMapFormat == Model::MapFormat::Source) {
+                parseEntityProperty(properties, propertyKeys, status);
             } else {
                 expect(QuakeMapToken::OParenthesis, token);
                 parseBrush(status, startLine, false);
@@ -361,6 +538,9 @@ namespace TrenchBroom {
                     } else {
                         parseQuake2Face(status);
                     }
+                    break;
+                case Model::MapFormat::Source:
+                    parseSourceFace(status);
                     break;
                 case Model::MapFormat::Unknown:
                     // cannot happen
@@ -501,6 +681,28 @@ namespace TrenchBroom {
             onValveBrushFace(line, m_targetMapFormat, p1, p2, p3, attribs, texX, texY, status);
         }
 
+        void StandardMapParser::parseSourceFace(ParserStatus& status) {
+            // source engine requires prefixes for everything
+            // stuff that didn't need it before, like brush faces, now do.
+            const auto line = m_tokenizer.line();
+
+            const auto sourceId = parseSourceId(status);
+
+            const auto [p1, p2, p3] = parseFacePoints(status);
+            const auto textureName = parseTextureName(status);
+
+            const auto [texX, xOffset, texY, yOffset] = parseValveTextureAxes(status);
+
+            auto attribs = Model::BrushFaceAttributes(textureName);
+            attribs.setXOffset(xOffset);
+            attribs.setYOffset(yOffset);
+            attribs.setRotation(parseFloat());
+            attribs.setXScale(parseFloat());
+            attribs.setYScale(parseFloat());
+
+            onValveBrushFace(line, m_targetMapFormat, p1, p2, p3, attribs, texX, texY, status);
+        }
+
         void StandardMapParser::parsePrimitiveFace(ParserStatus& status) {
             /* const auto line = */ m_tokenizer.line();
 
@@ -618,6 +820,11 @@ namespace TrenchBroom {
             const auto texX = correct(parseFloatVector(QuakeMapToken::OParenthesis, QuakeMapToken::CParenthesis));
             const auto texY = correct(parseFloatVector(QuakeMapToken::OParenthesis, QuakeMapToken::CParenthesis));
             return std::make_tuple(texX, texY);
+        }
+
+        std::string StandardMapParser::parseSourceId(ParserStatus&) {
+            const auto [sourceId, wasQuoted] = m_tokenizer.readAnyString(QuakeMapTokenizer::Whitespace());
+            return wasQuoted ? kdl::str_unescape(sourceId, "\"\\") : std::string(sourceId);
         }
 
         float StandardMapParser::parseFloat() {

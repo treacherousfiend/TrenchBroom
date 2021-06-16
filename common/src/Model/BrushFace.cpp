@@ -150,6 +150,19 @@ namespace TrenchBroom {
             return BrushFace::create(point1, point2, point3, attribs, std::move(texCoordSystem));
         }
 
+        kdl::result<BrushFace, BrushError> BrushFace::createFromSource(const vm::vec3& point1, const vm::vec3& point2, const vm::vec3& point3, const BrushFaceAttributes& inputAttribs, const vm::vec3& texAxisX, const vm::vec3& texAxisY, MapFormat mapFormat) {
+            assert(mapFormat != MapFormat::Unknown);
+
+            std::unique_ptr<TexCoordSystem> texCoordSystem;
+            BrushFaceAttributes attribs("");
+
+            // Pass through parallel
+            texCoordSystem = std::make_unique<ParallelTexCoordSystem>(texAxisX, texAxisY);
+            attribs = inputAttribs;
+
+            return BrushFace::create(point1, point2, point3, attribs, std::move(texCoordSystem));
+        }
+
         kdl::result<BrushFace, BrushError> BrushFace::create(const vm::vec3& point0, const vm::vec3& point1, const vm::vec3& point2, const BrushFaceAttributes& attributes, std::unique_ptr<TexCoordSystem> texCoordSystem) {
             Points points = {{ vm::correct(point0), vm::correct(point1), vm::correct(point2) }};
             const auto [result, plane] = vm::from_points(points[0], points[1], points[2]);
