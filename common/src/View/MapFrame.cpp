@@ -838,8 +838,12 @@ namespace TrenchBroom {
                 const IO::Path& originalPath = m_document->path();
                 const IO::Path directory = originalPath.deleteLastComponent();
                 const IO::Path fileName = originalPath.lastComponent();
+                const auto mapFormat = m_document->world()->mapFormat();
 
-                const QString newFileName = QFileDialog::getSaveFileName(this, tr("Save map file"), IO::pathAsQString(originalPath), "Map files (*.map)");
+                QString newFileName = QFileDialog::getSaveFileName(this, tr("Save map file"), IO::pathAsQString(originalPath), "Map files (*.map)");
+                if (mapFormat == Model::MapFormat::Source) {
+                    newFileName = QFileDialog::getSaveFileName(this, tr("Save map file"), IO::pathAsQString(originalPath), "Vmf files (*.vmf)");
+                }
                 if (newFileName.isEmpty()) {
                     return false;
                 }
@@ -889,8 +893,12 @@ namespace TrenchBroom {
 
         bool MapFrame::exportDocumentAsMap() {
             const IO::Path& originalPath = m_document->path();
+            const auto mapFormat = m_document->world()->mapFormat();
 
-            const QString newFileName = QFileDialog::getSaveFileName(this, tr("Export Map file"), IO::pathAsQString(originalPath), "Map files (*.map)");
+            QString newFileName = QFileDialog::getSaveFileName(this, tr("Export Map file"), IO::pathAsQString(originalPath), "Map files (*.map)");
+            if (mapFormat == Model::MapFormat::Source) {
+                newFileName = QFileDialog::getSaveFileName(this, tr("Export map file"), IO::pathAsQString(originalPath), "Vmf files (*.vmf)");
+            }
             if (newFileName.isEmpty()) {
                 return false;
             }

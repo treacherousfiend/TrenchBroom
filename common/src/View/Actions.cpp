@@ -780,6 +780,14 @@ namespace TrenchBroom {
                 },
                 [](ActionExecutionContext& context) { return context.hasDocument(); },
                 IO::Path(), QObject::tr("Exports the current map to a .map file. Layers marked Omit From Export will be omitted.")));
+            /* This should either have an if statement so .map doesn't get exported as .vmf and vice versa */
+            /* Or add functionality to convert one to the other */
+            exportMenu.addItem(createMenuAction(IO::Path("Menu/File/Export/Vmf..."), QObject::tr("Vmf..."), 0,
+                [](ActionExecutionContext& context) {
+                    context.frame()->exportDocumentAsMap();
+                },
+                [](ActionExecutionContext& context) { return context.hasDocument(); },
+                IO::Path(), QObject::tr("Exports the current map to a .vmf file. Layers marked Omit From Export will be omitted.")));
 
             /* ========== File Menu (Associated Resources) ========== */
             fileMenu.addSeparator();

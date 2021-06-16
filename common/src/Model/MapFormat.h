@@ -64,7 +64,11 @@ namespace TrenchBroom {
             /**
              * Quake 3 with brush primitives, also allows Quake 2 brushes
              */
-            Quake3
+            Quake3,
+            /**
+             * Source Engine map format (doesn't change between games)
+             */
+            Source
         };
 
         /**
